@@ -27,9 +27,14 @@ namespace
 {
   inline bool LayoutSort(const StringSettingOption& i, const StringSettingOption& j)
   {
-    return (i.value < j.value);
+    return (i.label < j.label);
   }
 } // unnamed namespace
+
+void CLibInputSettings::SortLayouts(std::vector<StringSettingOption>& options)
+{
+  std::sort(options.begin(), options.end(), LayoutSort);
+}
 
 CLibInputSettings::CLibInputSettings(CLibInputHandler *handler) :
   m_libInputHandler(handler)
@@ -127,7 +132,7 @@ CLibInputSettings::CLibInputSettings(CLibInputHandler *handler) :
     layoutElement = layoutElement->NextSiblingElement();
   }
 
-  std::sort(layouts.begin(), layouts.end(), LayoutSort);
+  SortLayouts(layouts);
 }
 
 CLibInputSettings::~CLibInputSettings()
