@@ -41,7 +41,6 @@ jobs:
               'User-Agent': 'upstream-comment-copy',
           }
           marker = re.compile(r'^\[upstream (\d+)\]')
-          copied_marker = '<!-- copied-upstream-comment:'
 
           def request_json(method, url, payload=None, retries=6):
               data = None if payload is None else json.dumps(payload).encode('utf-8')
@@ -85,7 +84,7 @@ jobs:
               text = re.sub(r'\bxbmc/xbmc#(\d+)\b', r'source-project issue \1', text, flags=re.I)
               text = re.sub(r'\bxbmc/xbmc@(\w[\w.-]*)\b', r'source-project commit \1', text, flags=re.I)
               # Avoid notifying people in the fork while preserving readable attribution.
-              text = re.sub(r'(?<![\w/])@([A-Za-z0-9-]+)', r'@\u200b\1', text)
+              text = re.sub(r'(?<![\w/])@([A-Za-z0-9-]+)', lambda m: '@\u200b' + m.group(1), text)
               return text
 
           def target_issue_map():
@@ -106,35 +105,39 @@ jobs:
           checked = 0
 
           for upstream_number, target_number in sorted(mapping.items()):
-              upstream_comments = list(paged(f'{api}/repos/{upstream_repo}/issues/{upstream_number}/comments?sort=created&direction=asc'))
-              if not upstream_comments:
-                  continue
-              existing_markers = set()
-              for comment in paged(f'{api}/repos/{target_repo}/issues/{target_number}/comments'):
-                  body = comment.get('body') or ''
-                  for match in re.finditer(r'<!-- copied-upstream-comment:(\d+) -->', body):
-                      existing_markers.add(int(match.group(1)))
-              for comment in upstream_comments:
-                  checked += 1
-                  comment_id = comment['id']
-                  if comment_id in existing_markers:
-                      skipped += 1
+              try:
+                  upstream_comments = list(paged(f'{api}/repos/{upstream_repo}/issues/{upstream_number}/comments?sort=created&direction=asc'))
+                  if not upstream_comments:
                       continue
-                  author = (comment.get('user') or {}).get('login') or 'unknown'
-                  created_at = comment.get('created_at') or 'unknown time'
-                  body = sanitize(comment.get('body') or '')
-                  copied_body = (
-                      f'<!-- copied-upstream-comment:{comment_id} -->\n'
-                      f'Copied comment from source issue {upstream_number}.\n\n'
-                      f'Original author: {sanitize("@" + author)}\n'
-                      f'Original created: {created_at}\n\n'
-                      '---\n\n'
-                      f'{body}'
-                  )
-                  request_json('POST', f'{api}/repos/{target_repo}/issues/{target_number}/comments', {'body': copied_body})
-                  created += 1
-                  print(f'copied comment {comment_id} from source {upstream_number} to target {target_number}')
-                  time.sleep(1.2)
+                  existing_markers = set()
+                  for comment in paged(f'{api}/repos/{target_repo}/issues/{target_number}/comments'):
+                      body = comment.get('body') or ''
+                      for match in re.finditer(r'<!-- copied-upstream-comment:(\d+) -->', body):
+                          existing_markers.add(int(match.group(1)))
+                  for comment in upstream_comments:
+                      checked += 1
+                      comment_id = comment['id']
+                      if comment_id in existing_markers:
+                          skipped += 1
+                          continue
+                      author = (comment.get('user') or {}).get('login') or 'unknown'
+                      created_at = comment.get('created_at') or 'unknown time'
+                      body = sanitize(comment.get('body') or '')
+                      copied_body = (
+                          f'<!-- copied-upstream-comment:{comment_id} -->\n'
+                          f'Copied comment from source issue {upstream_number}.\n\n'
+                          f'Original author: {sanitize("@" + author)}\n'
+                          f'Original created: {created_at}\n\n'
+                          '---\n\n'
+                          f'{body}'
+                      )
+                      request_json('POST', f'{api}/repos/{target_repo}/issues/{target_number}/comments', {'body': copied_body})
+                      created += 1
+                      print(f'copied comment {comment_id} from source {upstream_number} to target {target_number}')
+                      time.sleep(1.2)
+              except Exception as exc:
+                  print(f'failed source {upstream_number} target {target_number}: {exc}')
+                  raise
 
           print(f'done: checked={checked} created={created} skipped={skipped}')
           PY
