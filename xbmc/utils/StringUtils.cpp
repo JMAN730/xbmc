@@ -1023,8 +1023,58 @@ static const uint16_t* const planemap[256] = {
 };
 // clang-format on
 
+wchar_t StringUtils::GetNordicCollationWeight(std::string_view languageCode,
+                                              wchar_t codepoint) noexcept
+{
+  if (languageCode == "nor" || languageCode == "nob" || languageCode == "nno" ||
+      languageCode == "dan")
+  {
+    // Norwegian/Danish alphabet order: ... x y z æ ø å
+    switch (codepoint)
+    {
+      case 0x00C6:
+      case 0x00E6: // Æ / æ
+        return L'z' + 1;
+      case 0x00D8:
+      case 0x00F8: // Ø / ø
+        return L'z' + 2;
+      case 0x00C5:
+      case 0x00E5: // Å / å
+        return L'z' + 3;
+      default:
+        return 0;
+    }
+  }
+  if (languageCode == "swe" || languageCode == "fin")
+  {
+    // Swedish/Finnish alphabet order: ... x y z å ä ö
+    switch (codepoint)
+    {
+      case 0x00C5:
+      case 0x00E5: // Å / å
+        return L'z' + 1;
+      case 0x00C4:
+      case 0x00E4: // Ä / ä
+        return L'z' + 2;
+      case 0x00D6:
+      case 0x00F6: // Ö / ö
+        return L'z' + 3;
+      default:
+        return 0;
+    }
+  }
+  return 0;
+}
+
 static wchar_t GetCollationWeight(const wchar_t& r)
 {
+  // Nordic languages order some accented vowels as distinct letters at the end of their
+  // alphabet rather than as accented variants of a/o (see StringUtils::GetNordicCollationWeight).
+  // Apply that override, when applicable, ahead of the generic accent-folding table below.
+  const wchar_t nordicWeight = StringUtils::GetNordicCollationWeight(g_langInfo.GetLanguageCode(), r);
+  if (nordicWeight != 0)
+    return nordicWeight;
+
   // Lookup the "weight" of a UTF8 char, equivalent lowercase ascii letter, in the plane map,
   // the character comparison value used by using "accent folding" collation utf8_general_ci
   // in MySQL (AKA utf8mb3_general_ci in MariaDB 10)
