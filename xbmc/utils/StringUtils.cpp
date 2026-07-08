@@ -30,8 +30,11 @@
 
 #include "CharsetConverter.h"
 #include "LangInfo.h"
+#include "ServiceBroker.h"
 #include "StringUtils.h"
 #include "XBDateTime.h"
+#include "settings/AdvancedSettings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/RegExp.h"
 
 #include <algorithm>
@@ -1030,13 +1033,19 @@ wchar_t StringUtils::GetNordicCollationWeight(std::string_view languageCode,
       languageCode == "dan")
   {
     // Norwegian/Danish alphabet order: ... x y z æ ø å
+    // ä sorts with æ and ö sorts with ø, so imported Swedish/Finnish names keep their
+    // Nordic end-of-alphabet position instead of folding to a/o
     switch (codepoint)
     {
       case 0x00C6:
       case 0x00E6: // Æ / æ
+      case 0x00C4:
+      case 0x00E4: // Ä / ä
         return L'z' + 1;
       case 0x00D8:
       case 0x00F8: // Ø / ø
+      case 0x00D6:
+      case 0x00F6: // Ö / ö
         return L'z' + 2;
       case 0x00C5:
       case 0x00E5: // Å / å
@@ -1066,14 +1075,34 @@ wchar_t StringUtils::GetNordicCollationWeight(std::string_view languageCode,
   return 0;
 }
 
+// True when the accent-folding fallback is in use to mirror the utf8_general_ci ordering
+// of a configured MySQL/MariaDB database (see CLangInfo::UseLocaleCollation()). The SQL
+// ORDER BY path cannot apply any language-specific tailoring, so in-memory sorting must
+// stick to the plain folding weights to stay consistent with SQL-sorted results.
+static bool CollationMirrorsMySql()
+{
+  const auto settingsComponent = CServiceBroker::GetSettingsComponent();
+  if (!settingsComponent)
+    return false;
+  const auto advancedSettings = settingsComponent->GetAdvancedSettings();
+  if (!advancedSettings)
+    return false;
+  return StringUtils::EqualsNoCase(advancedSettings->m_databaseMusic.type, "mysql") ||
+         StringUtils::EqualsNoCase(advancedSettings->m_databaseVideo.type, "mysql");
+}
+
 static wchar_t GetCollationWeight(const wchar_t& r)
 {
   // Nordic languages order some accented vowels as distinct letters at the end of their
   // alphabet rather than as accented variants of a/o (see StringUtils::GetNordicCollationWeight).
   // Apply that override, when applicable, ahead of the generic accent-folding table below.
-  const wchar_t nordicWeight = StringUtils::GetNordicCollationWeight(g_langInfo.GetLanguageCode(), r);
-  if (nordicWeight != 0)
-    return nordicWeight;
+  if (!CollationMirrorsMySql())
+  {
+    const wchar_t nordicWeight =
+        StringUtils::GetNordicCollationWeight(g_langInfo.GetLanguageCode(), r);
+    if (nordicWeight != 0)
+      return nordicWeight;
+  }
 
   // Lookup the "weight" of a UTF8 char, equivalent lowercase ascii letter, in the plane map,
   // the character comparison value used by using "accent folding" collation utf8_general_ci

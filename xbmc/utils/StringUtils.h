@@ -289,8 +289,8 @@ public:
    * when locale collation is unavailable (e.g. on Android, which has no working
    * std::collate<wchar_t> facet) treats æ/ø/å/ä/ö as accented variants of a/o and folds them
    * accordingly. This is wrong for Nordic languages, which treat them as distinct letters
-   * placed at the end of the alphabet: Norwegian/Danish order z, æ, ø, å; Swedish/Finnish
-   * order z, å, ä, ö.
+   * placed at the end of the alphabet: Norwegian/Danish order z, æ, ø, å (with ä weighted
+   * like æ and ö like ø); Swedish/Finnish order z, å, ä, ö.
    * \param languageCode ISO 639-2 language code, as returned by CLangInfo::GetLanguageCode()
    * \param codepoint the (upper or lower case) unicode codepoint being weighted
    * \return an override weight that sorts after 'z', or 0 if no override applies

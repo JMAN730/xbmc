@@ -446,6 +446,11 @@ TEST(TestStringUtils, GetNordicCollationWeight)
     EXPECT_EQ(ae, StringUtils::GetNordicCollationWeight(lang, L'Æ')); // Æ
     EXPECT_EQ(oe, StringUtils::GetNordicCollationWeight(lang, L'Ø')); // Ø
     EXPECT_EQ(aa, StringUtils::GetNordicCollationWeight(lang, L'Å')); // Å
+    // Swedish/Finnish ä/ö sort with æ/ø rather than folding to a/o
+    EXPECT_EQ(ae, StringUtils::GetNordicCollationWeight(lang, L'ä')); // ä
+    EXPECT_EQ(ae, StringUtils::GetNordicCollationWeight(lang, L'Ä')); // Ä
+    EXPECT_EQ(oe, StringUtils::GetNordicCollationWeight(lang, L'ö')); // ö
+    EXPECT_EQ(oe, StringUtils::GetNordicCollationWeight(lang, L'Ö')); // Ö
   }
 
   // Swedish/Finnish alphabet order: ... x y z å ä ö
