@@ -26,6 +26,9 @@ public:
                                                   std::vector<StringSettingOption>& list,
                                                   std::string& current);
 
+  //! Sorts layouts by their displayed label (not their internal value)
+  static void SortLayouts(std::vector<StringSettingOption>& layouts);
+
   CLibInputSettings(CLibInputHandler *handler);
   ~CLibInputSettings() override;
 
