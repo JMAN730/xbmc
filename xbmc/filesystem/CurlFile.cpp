@@ -100,6 +100,10 @@ CURLcode PerformWithRetry(CURL_HANDLE* easyHandle, const CURL& url, const char* 
     retry++;
     CLog::Log(LOGWARNING, "{} - <{}> Transient error {}({}), retry {}", function,
               url.GetRedacted(), g_curlInterface.easy_strerror(result), result, retry);
+
+    // Fast failures (connection refused, resolve errors) would otherwise burn the
+    // whole retry budget instantly; back off so a brief outage can recover.
+    KODI::TIME::Sleep(std::min(retry * 500ms, 2000ms));
   }
 }
 
