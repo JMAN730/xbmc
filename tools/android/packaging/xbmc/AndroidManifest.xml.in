@@ -4,6 +4,10 @@
     android:versionCode="@APP_VERSION_CODE_ANDROID@"
     android:versionName="@APP_VERSION@">
 
+    <permission
+        android:name="@APP_PACKAGE@.permission.READ_FILE_PROVIDER"
+        android:protectionLevel="signature" />
+
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -125,7 +129,8 @@
         <provider
             android:name=".content.XBMCFileContentProvider"
             android:authorities="@APP_PACKAGE@.file"
-            android:exported="true" />
+            android:exported="true"
+            android:permission="@APP_PACKAGE@.permission.READ_FILE_PROVIDER" />
         <provider
             android:name=".content.XBMCFileProvider"
             android:authorities="@APP_PACKAGE@.fileprovider"
