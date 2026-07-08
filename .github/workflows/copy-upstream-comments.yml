@@ -7,137 +7,15 @@ on:
       - .github/workflows/copy-upstream-comments.yml
   workflow_dispatch:
 
+concurrency:
+  group: copy-upstream-comments
+  cancel-in-progress: true
+
 permissions:
   contents: read
-  issues: write
 
 jobs:
-  copy-comments:
+  stopped:
     runs-on: ubuntu-latest
     steps:
-      - name: Copy sanitized upstream comments to fork issues
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_REPO: ${{ github.repository }}
-          UPSTREAM_REPO: xbmc/xbmc
-        run: |
-          python3 <<'PY'
-          import json
-          import os
-          import re
-          import time
-          import urllib.error
-          import urllib.parse
-          import urllib.request
-
-          token = os.environ['GH_TOKEN']
-          target_repo = os.environ['TARGET_REPO']
-          upstream_repo = os.environ['UPSTREAM_REPO']
-          api = 'https://api.github.com'
-          headers = {
-              'Authorization': f'Bearer {token}',
-              'Accept': 'application/vnd.github+json',
-              'X-GitHub-Api-Version': '2022-11-28',
-              'User-Agent': 'upstream-comment-copy',
-          }
-          marker = re.compile(r'^\[upstream (\d+)\]')
-
-          def request_json(method, url, payload=None, retries=6):
-              data = None if payload is None else json.dumps(payload).encode('utf-8')
-              req = urllib.request.Request(url, data=data, headers=headers, method=method)
-              for attempt in range(retries):
-                  try:
-                      with urllib.request.urlopen(req, timeout=90) as response:
-                          body = response.read().decode('utf-8')
-                          return json.loads(body) if body else None
-                  except urllib.error.HTTPError as exc:
-                      body = exc.read().decode('utf-8', 'replace')
-                      if exc.code in (403, 429, 502, 503, 504) and attempt < retries - 1:
-                          wait = 60 * (attempt + 1)
-                          print(f'transient/rate limited on {method} {url}; waiting {wait}s: {body[:200]}')
-                          time.sleep(wait)
-                          continue
-                      if exc.code == 422:
-                          print(f'validation failed on {method} {url}: {body[:500]}')
-                          return None
-                      raise RuntimeError(f'{method} {url} failed: {exc.code} {body}') from exc
-
-          def paged(url):
-              page = 1
-              while True:
-                  sep = '&' if '?' in url else '?'
-                  batch = request_json('GET', f'{url}{sep}per_page=100&page={page}')
-                  if not batch:
-                      break
-                  yield from batch
-                  if len(batch) < 100:
-                      break
-                  page += 1
-
-          def sanitize(text):
-              if not text:
-                  return ''
-              text = text.replace('\r\n', '\n')
-              # Avoid upstream cross-reference/link generation.
-              text = re.sub(r'https?://github\.com/xbmc/xbmc', 'github[.]com/source-project', text, flags=re.I)
-              text = re.sub(r'https?://api\.github\.com/repos/xbmc/xbmc', 'api.github[.]com/repos/source-project', text, flags=re.I)
-              text = re.sub(r'\bxbmc/xbmc#(\d+)\b', r'source-project issue \1', text, flags=re.I)
-              text = re.sub(r'\bxbmc/xbmc@(\w[\w.-]*)\b', r'source-project commit \1', text, flags=re.I)
-              # Avoid notifying people in the fork while preserving readable attribution.
-              text = re.sub(r'(?<![\w/])@([A-Za-z0-9-]+)', lambda m: '@\u200b' + m.group(1), text)
-              return text
-
-          def target_issue_map():
-              mapping = {}
-              for issue in paged(f'{api}/repos/{target_repo}/issues?state=open'):
-                  if 'pull_request' in issue:
-                      continue
-                  title = issue.get('title') or ''
-                  match = marker.match(title)
-                  if match:
-                      mapping[int(match.group(1))] = issue['number']
-              return mapping
-
-          mapping = target_issue_map()
-          print(f'mapped {len(mapping)} fork issues')
-          created = 0
-          skipped = 0
-          checked = 0
-
-          for upstream_number, target_number in sorted(mapping.items()):
-              try:
-                  upstream_comments = list(paged(f'{api}/repos/{upstream_repo}/issues/{upstream_number}/comments?sort=created&direction=asc'))
-                  if not upstream_comments:
-                      continue
-                  existing_markers = set()
-                  for comment in paged(f'{api}/repos/{target_repo}/issues/{target_number}/comments'):
-                      body = comment.get('body') or ''
-                      for match in re.finditer(r'<!-- copied-upstream-comment:(\d+) -->', body):
-                          existing_markers.add(int(match.group(1)))
-                  for comment in upstream_comments:
-                      checked += 1
-                      comment_id = comment['id']
-                      if comment_id in existing_markers:
-                          skipped += 1
-                          continue
-                      author = (comment.get('user') or {}).get('login') or 'unknown'
-                      created_at = comment.get('created_at') or 'unknown time'
-                      body = sanitize(comment.get('body') or '')
-                      copied_body = (
-                          f'<!-- copied-upstream-comment:{comment_id} -->\n'
-                          f'Copied comment from source issue {upstream_number}.\n\n'
-                          f'Original author: {sanitize("@" + author)}\n'
-                          f'Original created: {created_at}\n\n'
-                          '---\n\n'
-                          f'{body}'
-                      )
-                      request_json('POST', f'{api}/repos/{target_repo}/issues/{target_number}/comments', {'body': copied_body})
-                      created += 1
-                      print(f'copied comment {comment_id} from source {upstream_number} to target {target_number}')
-                      time.sleep(1.2)
-              except Exception as exc:
-                  print(f'failed source {upstream_number} target {target_number}: {exc}')
-                  raise
-
-          print(f'done: checked={checked} created={created} skipped={skipped}')
-          PY
+      - run: echo "Comment copy stopped."
