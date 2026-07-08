@@ -1,0 +1,130 @@
+name: Import upstream issues
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/import-upstream-issues.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Import open upstream issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+          UPSTREAM_REPO: xbmc/xbmc
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          token = os.environ['GH_TOKEN']
+          target_repo = os.environ['TARGET_REPO']
+          upstream_repo = os.environ['UPSTREAM_REPO']
+          api = 'https://api.github.com'
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'upstream-issue-import',
+          }
+          upstream_marker = re.compile(r'^\[upstream (\d+)\]')
+
+          def request_json(method, url, payload=None, retries=5):
+              data = None if payload is None else json.dumps(payload).encode('utf-8')
+              req = urllib.request.Request(url, data=data, headers=headers, method=method)
+              for attempt in range(retries):
+                  try:
+                      with urllib.request.urlopen(req, timeout=60) as response:
+                          body = response.read().decode('utf-8')
+                          return json.loads(body) if body else None
+                  except urllib.error.HTTPError as exc:
+                      body = exc.read().decode('utf-8', 'replace')
+                      if exc.code in (403, 429) and attempt < retries - 1:
+                          wait = 60 * (attempt + 1)
+                          print(f'rate limited on {method} {url}; waiting {wait}s: {body[:200]}')
+                          time.sleep(wait)
+                          continue
+                      if exc.code == 422:
+                          print(f'validation failed on {method} {url}: {body[:500]}')
+                          return None
+                      raise RuntimeError(f'{method} {url} failed: {exc.code} {body}') from exc
+
+          def paged(url):
+              page = 1
+              while True:
+                  sep = '&' if '?' in url else '?'
+                  batch = request_json('GET', f'{url}{sep}per_page=100&page={page}')
+                  if not batch:
+                      break
+                  yield from batch
+                  if len(batch) < 100:
+                      break
+                  page += 1
+
+          existing = set()
+          target_issues = paged(f'{api}/repos/{target_repo}/issues?state=open')
+          for issue in target_issues:
+              if 'pull_request' in issue:
+                  continue
+              match = upstream_marker.match(issue.get('title', ''))
+              if match:
+                  existing.add(int(match.group(1)))
+
+          upstream = []
+          page = 1
+          while True:
+              query = urllib.parse.urlencode({
+                  'q': f'repo:{upstream_repo} is:issue is:open',
+                  'sort': 'created',
+                  'order': 'asc',
+                  'per_page': 100,
+                  'page': page,
+              })
+              data = request_json('GET', f'{api}/search/issues?{query}')
+              items = data.get('items', [])
+              upstream.extend(items)
+              if len(items) < 100:
+                  break
+              page += 1
+
+          print(f'found {len(upstream)} upstream open issues; {len(existing)} already copied')
+          created = 0
+          skipped = 0
+          for item in upstream:
+              number = item['number']
+              title = item['title']
+              if number in existing:
+                  skipped += 1
+                  continue
+              body = (
+                  f'Imported tracking copy of upstream issue {number} from {upstream_repo}.\n\n'
+                  f'Original title: {title}\n'
+                  f'Source URL, deactivated to avoid upstream cross-reference events: '
+                  f'github[.]com/{upstream_repo}/issues/{number}\n\n'
+                  'This issue was created in this fork as an open tracking copy. '
+                  'No comments or writes were made on the upstream repository.'
+              )
+              request_json('POST', f'{api}/repos/{target_repo}/issues', {
+                  'title': f'[upstream {number}] {title}',
+                  'body': body,
+              })
+              created += 1
+              existing.add(number)
+              print(f'created upstream {number}: {title}')
+              time.sleep(1.5)
+
+          print(f'done: created={created} skipped={skipped} total_upstream={len(upstream)}')
+          PY
