@@ -13,11 +13,15 @@
 #include "GUILabelControl.h"
 #include "GUIWindowManager.h"
 #include "ServiceBroker.h"
+#include "application/Application.h"
 #include "input/actions/Action.h"
 #include "messaging/ApplicationMessenger.h"
 #include "threads/SingleLock.h"
 #include "utils/TimeUtils.h"
 #include "windowing/WinSystem.h"
+
+#include <chrono>
+#include <thread>
 
 CGUIDialog::CGUIDialog(int id, const std::string &xmlFile, DialogModalityType modalityType /* = DialogModalityType::MODAL */)
     : CGUIWindow(id, xmlFile)
@@ -178,7 +182,16 @@ void CGUIDialog::Open_Internal(bool bProcessRenderLoop, const std::string &param
     while (m_active)
     {
       if (!CServiceBroker::GetGUI()->GetWindowManager().ProcessRenderLoop(false))
-        break;
+      {
+        // Rendering can be suspended without the app actually stopping, e.g. when
+        // it loses focus/visibility on Android. That must not be treated as the
+        // dialog being closed, or the caller gives up waiting and treats whatever
+        // (possibly empty) value the dialog currently holds as the final result.
+        if (g_application.m_bStop)
+          break;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
     }
   }
 }
