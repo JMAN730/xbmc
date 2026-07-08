@@ -1257,6 +1257,11 @@ bool CVideoPlayer::ReadPacket(DemuxPacket*& packet, CDemuxStream*& stream)
       UpdateContent();
       OpenDefaultStreams(false);
 
+      // OpenDefaultStreams() returns early while DVD/BD navigation controls stream
+      // selection, so reevaluate here as well (we may have switched from/to a radio
+      // channel)
+      UpdateHasVideoAudio();
+
       return true;
     }
 
