@@ -4,10 +4,6 @@
     android:versionCode="@APP_VERSION_CODE_ANDROID@"
     android:versionName="@APP_VERSION@">
 
-    <permission
-        android:name="@APP_PACKAGE@.permission.READ_FILE_PROVIDER"
-        android:protectionLevel="signature" />
-
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -126,11 +122,15 @@
             android:name=".content.XBMCMediaContentProvider"
             android:authorities="@APP_PACKAGE@.media"
             android:exported="true" />
+        <!-- Must stay openly exported: URIs from this provider are stored in TvContract
+             preview programs, search suggestions and recommendations, and are later read
+             by the system TV launcher / Search UI, which cannot hold an app-defined
+             permission. Access is instead restricted by served-path validation in
+             XBMCFileContentProvider. -->
         <provider
             android:name=".content.XBMCFileContentProvider"
             android:authorities="@APP_PACKAGE@.file"
-            android:exported="true"
-            android:permission="@APP_PACKAGE@.permission.READ_FILE_PROVIDER" />
+            android:exported="true" />
         <provider
             android:name=".content.XBMCFileProvider"
             android:authorities="@APP_PACKAGE@.fileprovider"
