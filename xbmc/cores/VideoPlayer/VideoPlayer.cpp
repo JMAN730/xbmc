@@ -93,6 +93,10 @@ private:
   // may differ from the language setting if the movie does not provide it the desired language
   std::string m_playedAudioLang;
   std::string m_subLang;
+  // User interface language, used to match forced subtitles.
+  // The audio language must never be used for this purpose (see comment in the "forced" branch
+  // of operator() below), so this is tracked separately from m_subLang.
+  std::string m_uiLang;
   bool m_isPrefOriginal;
   bool m_isPrefForced;
   bool m_isPrefHearingImp;
@@ -124,6 +128,8 @@ public:
         m_subLang = m_playedAudioLang;
     }
 
+    m_uiLang = g_langInfo.GetLanguageCode();
+
     // Dont allow "forced" setting to be combined with "impaired" setting
     if (m_isPrefHearingImp && m_isPrefForced)
       m_isPrefForced = false;
@@ -137,9 +143,22 @@ public:
     if (m_isSubNone)
       return true;
 
+    const bool isCC = STREAM_SOURCE_MASK(ss.source) == STREAM_SOURCE_VIDEOMUX;
+
+    if (m_isPrefForced)
+    {
+      // Forced subtitles must be selected purely on whether they match the user interface
+      // language, or have an undetermined language, in that priority order. The audio language
+      // must NOT be considered: otherwise a forced subtitle the viewer cannot read could be
+      // selected instead of one matching the UI language (e.g. audio="it", UI="en" with both
+      // "it" and "en" forced subs available - the "en" one must win).
+      const bool isUndetermined = ss.language.empty() || ss.language == "und";
+      const bool matchesUiLang = g_LangCodeExpander.CompareISO639Codes(ss.language, m_uiLang);
+      return !((ss.flags & StreamFlags::FLAG_FORCED) && (matchesUiLang || isUndetermined));
+    }
+
     const bool isExternal = STREAM_SOURCE_MASK(ss.source) == STREAM_SOURCE_DEMUX_SUB ||
                             STREAM_SOURCE_MASK(ss.source) == STREAM_SOURCE_TEXT;
-    const bool isCC = STREAM_SOURCE_MASK(ss.source) == STREAM_SOURCE_VIDEOMUX;
 
     // External subtitles with unknown language always allow it
     if (isExternal && (ss.language.empty() || ss.language == "und"))
@@ -172,13 +191,6 @@ public:
     {
       if ((ss.flags & FLAG_ORIGINAL))
         return false;
-    }
-    else if (m_isPrefForced)
-    {
-      if ((ss.flags & StreamFlags::FLAG_FORCED) && isSameSubLang)
-        return false;
-      else
-        return true;
     }
 
     // can fall here only when "forced" and "impaired" are disabled,
@@ -273,6 +285,9 @@ class PredicateSubtitlePriority
 private:
   std::string m_playedAudioLang;
   std::string m_subLang;
+  // User interface language, used to prioritize forced subtitles (the audio language must not
+  // be considered for this purpose, see the m_isPrefForced branch of operator() below).
+  std::string m_uiLang;
   bool m_isPrefOriginal;
   bool m_isPrefForced;
   bool m_isPrefHearingImp;
@@ -298,6 +313,8 @@ public:
       if (m_subLang.empty()) // No language set (due to default, original, mediadefault settings)
         m_subLang = m_playedAudioLang;
     }
+
+    m_uiLang = g_langInfo.GetLanguageCode();
 
     // Dont allow "forced" setting to be combined with "impaired" setting
     if (m_isPrefHearingImp && m_isPrefForced)
@@ -371,12 +388,26 @@ public:
     }
     else if (m_isPrefForced)
     {
-      const int checkFlags = FLAG_FORCED | FLAG_DEFAULT;
-      PREDICATE_RETURN((lh.flags & checkFlags) == checkFlags && isLSameSubLang,
-                       (rh.flags & checkFlags) == checkFlags && isRSameSubLang);
+      // Forced subtitles are prioritized purely by whether they match the user interface
+      // language, or have an undetermined language, in that order. The audio language must
+      // NOT be considered here (see PredicateSubtitleFilter for the rationale).
+      const bool isLmatchesUiLang = g_LangCodeExpander.CompareISO639Codes(lh.language, m_uiLang);
+      const bool isRmatchesUiLang = g_LangCodeExpander.CompareISO639Codes(rh.language, m_uiLang);
+      const bool isLundetermined = lh.language.empty() || lh.language == "und";
+      const bool isRundetermined = rh.language.empty() || rh.language == "und";
 
-      PREDICATE_RETURN((lh.flags & FLAG_FORCED) && isLSameSubLang,
-                       (rh.flags & FLAG_FORCED) && isRSameSubLang);
+      const int checkFlags = FLAG_FORCED | FLAG_DEFAULT;
+      PREDICATE_RETURN((lh.flags & checkFlags) == checkFlags && isLmatchesUiLang,
+                       (rh.flags & checkFlags) == checkFlags && isRmatchesUiLang);
+
+      PREDICATE_RETURN((lh.flags & FLAG_FORCED) && isLmatchesUiLang,
+                       (rh.flags & FLAG_FORCED) && isRmatchesUiLang);
+
+      PREDICATE_RETURN((lh.flags & checkFlags) == checkFlags && isLundetermined,
+                       (rh.flags & checkFlags) == checkFlags && isRundetermined);
+
+      PREDICATE_RETURN((lh.flags & FLAG_FORCED) && isLundetermined,
+                       (rh.flags & FLAG_FORCED) && isRundetermined);
 
       // dont return false here, allow you to fallback on regular sub
       // its just listitem pre-selection courtesy, in any case the sub will be not enabled
