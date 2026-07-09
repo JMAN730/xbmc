@@ -10045,7 +10045,16 @@ void CVideoDatabase::CleanDatabase(CGUIDialogProgressBarHandle* handle,
             exists = true;
         }
         else
-          exists = CDirectory::Exists(path, false);
+        {
+          // Only hit the (possibly network) filesystem if the path still belongs to a
+          // configured source. Otherwise, e.g. after a network share has been removed
+          // from the sources, treat it as non-existent straight away instead of letting
+          // the underlying filesystem implementation block for a long time trying to
+          // reach a share that no longer exists (see issue #217).
+          bool bIsSourceName = false;
+          bool sourceNotFound = (CUtil::GetMatchingSource(path, videoSources, bIsSourceName) < 0);
+          exists = !sourceNotFound && CDirectory::Exists(path, false);
+        }
 
         if (((pathsDeleteDecision != pathsDeleteDecisions.end() && pathsDeleteDecision->second) ||
              (pathsDeleteDecision == pathsDeleteDecisions.end() && !exists)) &&
