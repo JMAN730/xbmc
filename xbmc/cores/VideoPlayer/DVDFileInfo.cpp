@@ -13,6 +13,7 @@
 #include "FileItem.h"
 #include "FileItemList.h"
 #include "ServiceBroker.h"
+#include "cores/VideoPlayer/Interface/TimingConstants.h"
 #include "filesystem/StackDirectory.h"
 #include "guilib/Texture.h"
 #include "network/NetworkFileItemClassify.h"
@@ -201,9 +202,15 @@ std::unique_ptr<CTexture> CDVDFileInfo::ExtractThumbToTexture(const CFileItem& f
             iDecoderState = pVideoCodec->GetPicture(&picture);
           }
 
-          if (iDecoderState == CDVDVideoCodec::VC_PICTURE)
+          if (iDecoderState == CDVDVideoCodec::VC_PICTURE && !(picture.iFlags & DVP_FLAG_DROPPED))
           {
-            if (!(picture.iFlags & DVP_FLAG_DROPPED))
+            // A backwards seek lands on the keyframe at or before the target time, which can be
+            // well before the actual chapter start. Keep decoding forward until a picture at (or
+            // after) the requested position is reached, so the thumbnail shows the start of the
+            // chapter rather than the tail of the previous one. If the target is never reached
+            // (e.g. end of stream), the last successfully decoded picture is kept as a fallback.
+            if (!seekToChapter || picture.pts == DVD_NOPTS_VALUE ||
+                DVD_TIME_TO_MSEC(picture.pts) >= nSeekTo)
               break;
           }
 
