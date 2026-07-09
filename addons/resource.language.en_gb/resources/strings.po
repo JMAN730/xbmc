@@ -16334,7 +16334,7 @@ msgid "Couldn't connect"
 msgstr ""
 
 msgctxt "#24074"
-msgid "Needs to restart"
+msgid "This add-on needs to restart to apply the change"
 msgstr ""
 
 msgctxt "#24075"
