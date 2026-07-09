@@ -50,6 +50,8 @@
 #include "video/dialogs/GUIDialogFullScreenInfo.h"
 #include "windowing/WinSystem.h"
 
+#include <unordered_set>
+
 using namespace KODI::MESSAGING;
 
 CApplicationSkinHandling::CApplicationSkinHandling(IMsgTargetCallback* msgCb,
@@ -283,9 +285,16 @@ bool CApplicationSkinHandling::LoadCustomWindows()
   std::vector<std::string> vecSkinPath;
   skin->GetSkinPaths(vecSkinPath);
 
+  // Window ids registered from already processed (higher priority) skin resolution paths.
+  // The same custom window showing up again in a lower priority path is an expected
+  // override, not an error.
+  std::unordered_set<int> loadedWindowIds;
+
   for (const auto& skinPath : vecSkinPath)
   {
     CLog::Log(LOGINFO, "Loading custom window XMLs from skin path {}", skinPath);
+
+    std::unordered_set<int> pathWindowIds;
 
     CFileItemList items;
     if (XFILE::CDirectory::GetDirectory(skinPath, items, ".xml", XFILE::DIR_FLAG_NO_FILE_DIRS))
@@ -338,12 +347,24 @@ bool CApplicationSkinHandling::LoadCustomWindows()
           }
 
           int windowId = id + WINDOW_HOME;
-          if (id == WINDOW_INVALID ||
-              CServiceBroker::GetGUI()->GetWindowManager().GetWindow(windowId))
+          if (id == WINDOW_INVALID)
           {
-            // No id specified or id already in use
-            CLog::Log(LOGERROR, "No id specified or id already in use for custom window in {}",
-                      skinFile);
+            CLog::Log(LOGERROR, "No id specified for custom window in {}", skinFile);
+            continue;
+          }
+
+          if (loadedWindowIds.contains(windowId))
+          {
+            CLog::Log(LOGDEBUG,
+                      "Skipping custom window in {}: id {} already loaded from a higher priority "
+                      "skin resolution path",
+                      skinFile, id);
+            continue;
+          }
+
+          if (CServiceBroker::GetGUI()->GetWindowManager().GetWindow(windowId))
+          {
+            CLog::Log(LOGERROR, "Id {} already in use for custom window in {}", id, skinFile);
             continue;
           }
 
@@ -390,9 +411,12 @@ bool CApplicationSkinHandling::LoadCustomWindows()
                                                    : CGUIWindow::KEEP_IN_MEMORY);
 
           CServiceBroker::GetGUI()->GetWindowManager().AddCustomWindow(pWindow);
+          pathWindowIds.insert(windowId);
         }
       }
     }
+
+    loadedWindowIds.merge(pathWindowIds);
   }
   return true;
 }
