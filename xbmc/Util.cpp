@@ -397,15 +397,13 @@ std::string CUtil::GetTitleFromPath(const CURL& url, bool bIsFolder /* = false *
   else if (URIUtils::HasParentInHostname(url) && strFilename.empty())
     strFilename = URIUtils::GetFileName(url.GetHostName());
 
-  // now remove the extension if needed
-  if (!CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS) && !bIsFolder)
-  {
-    URIUtils::RemoveExtension(strFilename);
-    return strFilename;
-  }
-
   // URLDecode since the original path may be an URL
   strFilename = CURL::Decode(strFilename);
+
+  // now remove the extension if needed
+  if (!CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS) && !bIsFolder)
+    URIUtils::RemoveExtension(strFilename);
+
   return strFilename;
 }
 

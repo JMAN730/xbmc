@@ -9,6 +9,7 @@
 #include "ServiceBroker.h"
 #include "Util.h"
 #include "settings/AdvancedSettings.h"
+#include "settings/Settings.h"
 #include "settings/SettingsComponent.h"
 #include "video/FilenameAttributes.h"
 
@@ -35,6 +36,20 @@ TEST(TestUtil, GetQualifiedFilename)
   file = "smb://foo/bar/";
   CUtil::GetQualifiedFilename("upnp://", file);
   EXPECT_EQ(file, "smb://foo/bar/");
+}
+
+TEST(TestUtil, GetTitleFromPathHidesExtensionForUrlEncodedFilenames)
+{
+  auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+  const bool originalValue = settings->GetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS);
+  settings->SetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS, false);
+
+  // filenames containing spaces (or other characters requiring URL-encoding) must still
+  // have their extension hidden and be decoded back to a human-readable title
+  EXPECT_EQ(CUtil::GetTitleFromPath("davs://server/files/file%20name.mkv"), "file name");
+  EXPECT_EQ(CUtil::GetTitleFromPath("davs://server/files/file_name.mkv"), "file_name");
+
+  settings->SetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS, originalValue);
 }
 
 TEST(TestUtil, MakeLegalPath)
