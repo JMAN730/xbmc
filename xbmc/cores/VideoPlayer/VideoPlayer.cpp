@@ -3244,6 +3244,9 @@ void CVideoPlayer::HandleMessages()
             m_messenger.Put(std::make_shared<CDVDMsgPlayerSeek>(mode));
           }
         }
+
+        // signal change of the subtitle stream to observers (e.g. Player.OnAVChange)
+        m_messenger.Put(std::make_shared<CDVDMsg>(CDVDMsg::PLAYER_AVCHANGE));
       }
     }
     else if (pMsg->IsType(CDVDMsg::PLAYER_SET_SUBTITLESTREAM_VISIBLE))
@@ -3275,6 +3278,9 @@ void CVideoPlayer::HandleMessages()
       {
         CloseStream(m_CurrentSubtitle, false);
       }
+
+      // signal change of the subtitle stream state to observers (e.g. Player.OnAVChange)
+      m_messenger.Put(std::make_shared<CDVDMsg>(CDVDMsg::PLAYER_AVCHANGE));
     }
     else if (pMsg->IsType(CDVDMsg::PLAYER_SET_PROGRAM))
     {
