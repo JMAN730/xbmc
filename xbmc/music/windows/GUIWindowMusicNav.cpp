@@ -544,7 +544,7 @@ void CGUIWindowMusicNav::UpdateButtons()
   CONTROL_ENABLE_ON_CONDITION(CONTROL_UPDATE_LIBRARY, !m_vecItems->IsAddonsPath() && !m_vecItems->IsPlugin() && !m_vecItems->IsScript());
 }
 
-void CGUIWindowMusicNav::PlayItem(int iItem)
+void CGUIWindowMusicNav::PlayItem(int iItem, const std::string& player)
 {
   // unlike additemtoplaylist, we need to check the items here
   // before calling it since the current playlist will be stopped
@@ -554,7 +554,7 @@ void CGUIWindowMusicNav::PlayItem(int iItem)
   if (m_vecItems->IsVirtualDirectoryRoot() && !m_vecItems->Get(iItem)->IsDVD())
     return;
 
-  CGUIWindowMusicBase::PlayItem(iItem);
+  CGUIWindowMusicBase::PlayItem(iItem, player);
 }
 
 void CGUIWindowMusicNav::OnWindowLoaded()

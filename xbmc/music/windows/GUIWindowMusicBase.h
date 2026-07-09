@@ -83,7 +83,7 @@ protected:
   bool OnSelect(int iItem) override;
 
   // new methods
-  virtual void PlayItem(int iItem);
+  virtual void PlayItem(int iItem, const std::string& player = "");
   bool OnPlayMedia(int iItem, const std::string &player = "") override;
 
   void RetrieveMusicInfo();

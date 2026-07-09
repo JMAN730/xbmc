@@ -22,6 +22,7 @@
 #include "application/Application.h"
 #include "application/ApplicationComponents.h"
 #include "application/ApplicationPlayer.h"
+#include "cores/playercorefactory/PlayerCoreFactory.h"
 #include "dialogs/GUIDialogProgress.h"
 #include "dialogs/GUIDialogSelect.h"
 #include "dialogs/GUIDialogSmartPlaylistEditor.h"
@@ -69,6 +70,7 @@
 #include "video/guilib/VideoSelectActionProcessor.h"
 #include "view/GUIViewState.h"
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <ranges>
@@ -191,7 +193,20 @@ bool CGUIWindowVideoBase::OnMessage(CGUIMessage& message)
           }
 
           // not playing video, or playback speed == 1
-          return OnPlayOrResumeItem(iItem);
+
+          // The message's string param is a player core name only if it was set by
+          // e.g. the PlayWith(core) builtin; for keymap-driven actions it contains
+          // the keymap action string. Only accept names of known players.
+          std::string player{message.GetStringParam()};
+          if (!player.empty())
+          {
+            std::vector<std::string> players;
+            CServiceBroker::GetPlayerCoreFactory().GetPlayers(players);
+            if (std::ranges::find(players, player) == players.end())
+              player.clear();
+          }
+
+          return OnPlayOrResumeItem(iItem, player);
         }
         else if (iAction == ACTION_DELETE_ITEM)
         {

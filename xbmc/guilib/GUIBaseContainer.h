@@ -20,6 +20,7 @@
 #include <list>
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -103,7 +104,7 @@ public:
 #endif
 protected:
   EVENT_RESULT OnMouseEvent(const CPoint& point, const KODI::MOUSE::CMouseEvent& event) override;
-  bool OnClick(int actionID);
+  bool OnClick(int actionID, const std::string& player = "");
 
   virtual void ProcessItem(float posX,
                            float posY,

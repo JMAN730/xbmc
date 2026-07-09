@@ -512,7 +512,7 @@ bool CGUIBaseContainer::OnAction(const CAction &action)
   default:
     break;
   }
-  return action.GetID() && OnClick(action.GetID());
+  return action.GetID() && OnClick(action.GetID(), action.GetName());
 }
 
 bool CGUIBaseContainer::OnMessage(CGUIMessage& message)
@@ -902,7 +902,7 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint& point, const MOUSE::C
   return EVENT_RESULT_UNHANDLED;
 }
 
-bool CGUIBaseContainer::OnClick(int actionID)
+bool CGUIBaseContainer::OnClick(int actionID, const std::string& player)
 {
   int subItem = 0;
   if (actionID == ACTION_SELECT_ITEM || actionID == ACTION_MOUSE_LEFT_CLICK)
@@ -937,6 +937,8 @@ bool CGUIBaseContainer::OnClick(int actionID)
   }
   // Don't know what to do, so send to our parent window.
   CGUIMessage msg(GUI_MSG_CLICKED, GetID(), GetParentID(), actionID, subItem);
+  if (!player.empty())
+    msg.SetStringParam(player);
   return SendWindowMessage(msg);
 }
 
