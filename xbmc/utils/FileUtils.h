@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -34,4 +35,10 @@ public:
   */
   static CDateTime GetModificationDate(const std::string& strFileNameAndPath, const bool& bUseLatestDate);
   static CDateTime GetModificationDate(const int& code, const std::string& strFileNameAndPath);
+  /*! \brief Get the size of a file in bytes. Stacks are the sum of their parts,
+  for files in archives the size of the archive is returned.
+  \param strFileNameAndPath path to the file
+  \return Returns the file size in bytes, -1 if it could not be determined
+  */
+  static int64_t GetFileSize(const std::string& strFileNameAndPath);
 };

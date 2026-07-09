@@ -1209,9 +1209,15 @@ void CVideoDatabase::UpdateTables(int iVersion)
     m_pDS->dropIndex("episode", "id_episode_file_2");
     m_pDS->dropIndex("streamdetails", "ix_streamdetails");
   }
+
+  if (iVersion < 147)
+  {
+    // File sizes of existing library items are populated on the next scan/refresh
+    m_pDS->exec("ALTER TABLE files ADD fileSize integer");
+  }
 }
 
 int CVideoDatabase::GetSchemaVersion() const
 {
-  return 146;
+  return 147;
 }

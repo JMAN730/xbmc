@@ -96,6 +96,7 @@ void CVideoInfoTag::Reset()
   m_iIdShow = -1;
   m_iIdSeason = -1;
   m_dateAdded.Reset();
+  m_fileSize = 0;
   m_type.clear();
   m_relevance = -1;
   m_parsedDetails = 0;
@@ -501,6 +502,9 @@ void CVideoInfoTag::Merge(CVideoInfoTag& other)
 
   if (other.m_dateAdded.IsValid())
     m_dateAdded = other.m_dateAdded;
+
+  if (other.m_fileSize > 0)
+    m_fileSize = other.m_fileSize;
 
   if (!other.m_type.empty())
     m_type = other.m_type;

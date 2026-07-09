@@ -1513,6 +1513,9 @@ void CFileItem::SetFromVideoInfoTag(const CVideoInfoTag &video)
   else
     m_videoInfoTag = new CVideoInfoTag(video);
 
+  if (video.m_fileSize > 0)
+    SetSize(video.m_fileSize);
+
   if (video.m_iSeason == 0)
     SetProperty("isspecial", "true");
   ART::FillInDefaultIcon(*this);

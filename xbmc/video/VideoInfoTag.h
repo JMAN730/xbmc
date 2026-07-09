@@ -17,6 +17,7 @@
 #include "utils/StreamDetails.h"
 #include "video/Bookmark.h"
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -435,6 +436,7 @@ public:
   CFanart m_fanart;
   CStreamDetails m_streamDetails;
   CDateTime m_dateAdded;
+  int64_t m_fileSize{0}; ///< file size in bytes, 0 if unknown
   MediaType m_type;
   int m_relevance; // Used for actors' number of appearances
   int m_parsedDetails;

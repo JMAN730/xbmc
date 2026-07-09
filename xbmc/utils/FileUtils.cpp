@@ -255,6 +255,47 @@ CDateTime CFileUtils::GetModificationDate(const int& code, const std::string& st
   return dateAdded;
 }
 
+int64_t CFileUtils::GetFileSize(const std::string& strFileNameAndPath)
+{
+  if (strFileNameAndPath.empty())
+    return -1;
+
+  try
+  {
+    // for stacks return the sum of the sizes of all parts
+    if (URIUtils::IsStack(strFileNameAndPath))
+    {
+      std::vector<std::string> paths;
+      if (!CStackDirectory::GetPaths(strFileNameAndPath, paths))
+        return -1;
+
+      int64_t totalSize = 0;
+      for (const std::string& path : paths)
+      {
+        const int64_t size = GetFileSize(path);
+        if (size < 0)
+          return -1;
+        totalSize += size;
+      }
+      return totalSize;
+    }
+
+    std::string file = strFileNameAndPath;
+    if (URIUtils::IsInArchive(file))
+      file = CURL(file).GetHostName();
+
+    struct __stat64 buffer;
+    if (CFile::Stat(file, &buffer) == 0)
+      return buffer.st_size;
+  }
+  catch (...)
+  {
+    CLog::Log(LOGERROR, "{} unable to determine size of file ({})", __FUNCTION__,
+              strFileNameAndPath);
+  }
+  return -1;
+}
+
 bool CFileUtils::CheckFileAccessAllowed(const std::string &filePath)
 {
   // DENY access to paths matching
