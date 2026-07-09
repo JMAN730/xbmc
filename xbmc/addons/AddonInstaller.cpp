@@ -31,6 +31,7 @@
 #include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h" // for callback
 #include "jobs/JobManager.h"
+#include "messaging/ApplicationMessenger.h"
 #include "messaging/helpers/DialogHelper.h"
 #include "messaging/helpers/DialogOKHelper.h"
 #include "resources/LocalizeStrings.h"
@@ -1108,8 +1109,23 @@ bool CAddonInstallJob::Install(const std::string &installFrom, const RepositoryP
         // recall install on purpose in case prior installation failed
         if (CAddonInstaller::GetInstance().HasJob(addonID))
         {
+          // If this is running on the GUI thread (e.g. an addon install triggered
+          // synchronously while resolving a plugin:// path), a plain sleep loop would
+          // block the message pump for as long as the dependency job takes to finish -
+          // and forever if that job (or anything downstream of it, such as a dialog)
+          // itself needs the GUI thread to process a message. Keep the render loop and
+          // application messages flowing while we wait in that case.
+          const bool isGuiThread = CServiceBroker::GetAppMessenger()->IsProcessThread();
           while (CAddonInstaller::GetInstance().HasJob(addonID))
-            KODI::TIME::Sleep(50ms);
+          {
+            if (isGuiThread)
+            {
+              if (!CServiceBroker::GetGUI()->GetWindowManager().ProcessRenderLoop(false))
+                break; // application is stopping
+            }
+            else
+              KODI::TIME::Sleep(50ms);
+          }
 
           if (!CServiceBroker::GetAddonMgr().IsAddonInstalled(addonID))
           {
