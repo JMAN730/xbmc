@@ -540,6 +540,7 @@ bool CGUIControlGroup::RemoveControl(const CGUIControl *control)
     {
       m_children.erase(it);
       RemoveLookup(child);
+      child->SetParentControl(nullptr);
       SetInvalid();
       return true;
     }
@@ -549,10 +550,7 @@ bool CGUIControlGroup::RemoveControl(const CGUIControl *control)
 
 void CGUIControlGroup::ClearAll()
 {
-  // first remove from the lookup table
-  RemoveLookup();
-
-  // and delete all our children
+  // Each child unregisters itself from this and its ancestors before its memory is released.
   for (auto *control : m_children)
   {
     delete control;

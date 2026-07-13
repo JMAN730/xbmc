@@ -13,6 +13,7 @@
 #include "ServiceBroker.h"
 #include "StringUtils.h"
 #include "URIUtils.h"
+#include "URL.h"
 #include "Util.h"
 #include "Variant.h"
 #include "addons/IAddon.h"
@@ -215,8 +216,12 @@ std::string CLabelFormatter::GetMaskContent(const CMaskString &mask, const CFile
     break;
   case 'L':
     value = item->GetLabel();
-    // is the label the actual file or folder name?
-    if (value == URIUtils::GetFileName(item->GetPath()))
+    // is the label the actual file or folder name? The path's filename may still be
+    // URL-encoded (e.g. spaces as "%20") while the label is not, so also compare the
+    // decoded form - checking the exact form first keeps filenames that literally
+    // contain "%xx" sequences working.
+    if (value == URIUtils::GetFileName(item->GetPath()) ||
+        value == CURL::Decode(URIUtils::GetFileName(item->GetPath())))
     { // label is the same as filename, clean it up as appropriate
       value = CUtil::GetTitleFromPath(item->GetPath(), item->IsFolder() && !item->IsFileFolder());
     }

@@ -1075,6 +1075,12 @@ wchar_t StringUtils::GetNordicCollationWeight(std::string_view languageCode,
   return 0;
 }
 
+bool StringUtils::IsNordicCollationWeight(wchar_t weight) noexcept
+{
+  // GetNordicCollationWeight() returns L'z' + 1 ... L'z' + 3 for its overrides
+  return weight > L'z' && weight <= L'z' + 3;
+}
+
 // True when the accent-folding fallback is in use to mirror the utf8_general_ci ordering
 // of a configured MySQL/MariaDB database (see CLangInfo::UseLocaleCollation()). The SQL
 // ORDER BY path cannot apply any language-specific tailoring, so in-memory sorting must
@@ -1091,7 +1097,7 @@ static bool CollationMirrorsMySql()
          StringUtils::EqualsNoCase(advancedSettings->m_databaseVideo.type, "mysql");
 }
 
-static wchar_t GetCollationWeight(const wchar_t& r)
+wchar_t StringUtils::GetCollationWeight(wchar_t r) noexcept
 {
   // Nordic languages order some accented vowels as distinct letters at the end of their
   // alphabet rather than as accented variants of a/o (see StringUtils::GetNordicCollationWeight).

@@ -104,7 +104,7 @@ void CVideoDatabaseDDL::CreateTables(CDatabase& db)
   CLog::Log(LOGINFO, "create files table");
   db.ExecuteQuery(
       "CREATE TABLE files ( idFile integer primary key, idPath integer, strFilename text, "
-      "playCount integer, lastPlayed text, dateAdded text)");
+      "playCount integer, lastPlayed text, dateAdded text, fileSize bigint)");
 
   CLog::Log(LOGINFO, "create tvshow table");
   columns = "CREATE TABLE tvshow ( idShow integer primary key";
@@ -407,7 +407,8 @@ void CVideoDatabaseDDL::CreateViews(CDatabase& db)
       "  rating.votes AS votes, "
       "  rating.rating_type AS rating_type, "
       "  uniqueid.value AS uniqueid_value, "
-      "  uniqueid.type AS uniqueid_type "
+      "  uniqueid.type AS uniqueid_type, "
+      "  files.fileSize AS fileSize "
       "FROM episode"
       "  JOIN files ON"
       "    files.idFile=episode.idFile"
@@ -548,7 +549,8 @@ void CVideoDatabaseDDL::CreateViews(CDatabase& db)
                                 "  bookmark.totalTimeInSeconds AS totalTimeInSeconds, "
                                 "  bookmark.playerState AS playerState, "
                                 "  uniqueid.value AS uniqueid_value, "
-                                "  uniqueid.type AS uniqueid_type "
+                                "  uniqueid.type AS uniqueid_type, "
+                                "  files.fileSize AS fileSize "
                                 "FROM musicvideo"
                                 "  JOIN files ON"
                                 "    files.idFile=musicvideo.idFile"
@@ -603,7 +605,8 @@ void CVideoDatabaseDDL::CreateViews(CDatabase& db)
       "  vv.idFile AS videoVersionIdFile, "
       "  vvt.id AS videoVersionTypeId,"
       "  vvt.name AS videoVersionTypeName,"
-      "  vvt.itemType AS videoVersionTypeItemType "
+      "  vvt.itemType AS videoVersionTypeItemType,"
+      "  files.fileSize AS fileSize "
       "FROM movie"
       "  LEFT JOIN `sets` ON"
       "    `sets`.idSet = movie.idSet"

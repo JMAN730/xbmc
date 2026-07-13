@@ -30,7 +30,7 @@ protected:
   bool Update(const std::string &strDirectory, bool updateFilterPath = true) override;
   bool GetDirectory(const std::string &strDirectory, CFileItemList &items) override;
   void UpdateButtons() override;
-  void PlayItem(int iItem) override;
+  void PlayItem(int iItem, const std::string& player = "") override;
   void OnWindowLoaded() override;
   void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
   bool OnPopupMenu(int iItem) override;

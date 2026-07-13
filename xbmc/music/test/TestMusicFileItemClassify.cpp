@@ -16,6 +16,7 @@
 #include "utils/StringUtils.h"
 #include "video/VideoInfoTag.h"
 
+#include <algorithm>
 #include <array>
 
 #include <gtest/gtest.h>
@@ -89,7 +90,9 @@ INSTANTIATE_TEST_SUITE_P(TestMusicFileItemClassify, AudioTest, testing::ValuesIn
 TEST(TestMusicFileItemClassify, MusicExtensions)
 {
   const auto& exts = CServiceBroker::GetFileExtensionProvider().GetMusicExtensions();
-  for (const auto& ext : StringUtils::Split(exts, "|"))
+  const auto extensions = StringUtils::Split(exts, "|");
+  EXPECT_NE(std::find(extensions.cbegin(), extensions.cend(), ".m3u8"), extensions.cend());
+  for (const auto& ext : extensions)
   {
     if (!ext.empty())
     {

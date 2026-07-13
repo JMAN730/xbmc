@@ -178,6 +178,27 @@ Section "${APP_NAME}" SecAPP
   ;deinstall kodi in destination dir if $CleanDestDir == "1" - meaning user has confirmed it
   Call DeinstallKodiInDestDir
 
+  ;Remove the directories this or previous installer versions installed before
+  ;copying the new files. Relying on the old uninstaller alone is not enough: it is
+  ;never invoked on silent installs/upgrades (the directory page callback is skipped),
+  ;it may be missing or fail, and plain file overwriting never deletes files. Stale
+  ;files are especially harmful for the bundled Python interpreter, where leftover
+  ;Python 2 modules that only differ in case from their Python 3 successors
+  ;(e.g. SocketServer.py vs socketserver.py) or that no longer exist (e.g. StringIO.py,
+  ;urllib2.py) survive on case-insensitive filesystems and then shadow the correct
+  ;modules at import time, breaking add-ons.
+  ;Only clean when the directory actually contains a Kodi installation (the main
+  ;executable is present) - a bare "system" folder name is far too generic a marker
+  ;and would wipe unrelated data when installing into a non-empty foreign directory.
+  ${If} ${FileExists} "$INSTDIR\${APP_NAME}.exe"
+    DetailPrint "Removing files of previous ${APP_NAME} installation in $INSTDIR"
+    RMDir /r "$INSTDIR\addons"
+    RMDir /r "$INSTDIR\language"
+    RMDir /r "$INSTDIR\media"
+    RMDir /r "$INSTDIR\system"
+    RMDir /r "$INSTDIR\userdata"
+  ${EndIf}
+
   ;Start copying files
   SetOutPath "$INSTDIR"
   File "${app_root}\application\*.*"

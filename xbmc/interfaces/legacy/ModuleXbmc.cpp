@@ -204,7 +204,7 @@ namespace XBMCAddon
       case CLangCodeExpander::ISO_639_1:
         {
           std::string langCode;
-          g_LangCodeExpander.ConvertToISO6391(lang, langCode);
+          g_LangCodeExpander.ConvertToISO6391(CLangCodeExpander::GetBaseLanguageName(lang), langCode);
           if (region)
           {
             std::string region = g_langInfo.GetRegionLocale();
@@ -218,7 +218,7 @@ namespace XBMCAddon
       case CLangCodeExpander::ISO_639_2:
         {
           std::string langCode;
-          g_LangCodeExpander.ConvertToISO6392B(lang, langCode);
+          g_LangCodeExpander.ConvertToISO6392B(CLangCodeExpander::GetBaseLanguageName(lang), langCode);
           if (region)
           {
             std::string region = g_langInfo.GetRegionLocale();

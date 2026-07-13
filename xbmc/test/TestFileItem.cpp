@@ -10,6 +10,7 @@
 #include "LangInfo.h"
 #include "ServiceBroker.h"
 #include "URL.h"
+#include "interfaces/json-rpc/FileItemHandler.h"
 #include "media/MediaType.h"
 #include "resources/LocalizeStrings.h"
 #include "resources/ResourcesComponent.h"
@@ -17,6 +18,7 @@
 #include "settings/Settings.h"
 #include "settings/SettingsComponent.h"
 #include "settings/lib/SettingsManager.h"
+#include "utils/Variant.h"
 #include "video/VideoInfoTag.h"
 
 #include <gtest/gtest.h>
@@ -67,6 +69,12 @@ class TestFileItemMovieName : public AdvancedSettingsResetBase,
 class TestFileItemLocalMetadataPath : public AdvancedSettingsResetBase,
                                       public WithParamInterface<TestFileData>
 {
+};
+
+class TestableFileItemHandler : public JSONRPC::CFileItemHandler
+{
+public:
+  using CFileItemHandler::HandleFileItem;
 };
 
 const TestFileData BaseMovies[] = {
@@ -1019,6 +1027,23 @@ TEST(TestFileItem, MimeType)
   EXPECT_EQ("Internet Movies List", item.GetLabel());
   EXPECT_EQ("http://testdomain.com/api/movies", item.GetURL().Get());
   EXPECT_EQ("http://testdomain.com/api/movies", item.GetDynURL().Get());
+}
+
+TEST(TestFileItem, JsonRpcUsesFolderPathForVideoVersionGroup)
+{
+  constexpr std::string_view folderPath{"videodb://movies/titles/42/-2/?movieid=42&assetType=-2"};
+  constexpr std::string_view videoPath{"/movies/Example Movie (Default).mkv"};
+
+  const auto item = std::make_shared<CFileItem>(std::string{folderPath}, true);
+  item->GetVideoInfoTag()->SetFileNameAndPath(std::string{videoPath});
+
+  CVariant result;
+  TestableFileItemHandler::HandleFileItem(
+      "id", true, "files", item, CVariant{}, {"file", "filetype"}, result);
+
+  ASSERT_EQ(result["files"].size(), 1U);
+  EXPECT_EQ(result["files"][0]["file"].asString(), folderPath);
+  EXPECT_EQ(result["files"][0]["filetype"].asString(), "directory");
 }
 
 namespace

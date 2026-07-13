@@ -21,6 +21,8 @@ public:
 
   CGUIControl *GetControl(int id, std::vector<CGUIControl*> *idCollector = nullptr) override;
 protected:
+  void OnChildDestroyed(CGUIControl* control) override;
+
   typedef std::multimap<int, CGUIControl *> LookupMap;
 
   /*!

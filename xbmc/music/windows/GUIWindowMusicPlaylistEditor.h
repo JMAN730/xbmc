@@ -45,7 +45,7 @@ protected:
   void LoadPlaylist(const std::string &playlist);
 
   // new method
-  void PlayItem(int iItem) override;
+  void PlayItem(int iItem, const std::string& player = "") override;
 
   void DeleteRemoveableMediaDirectoryCache();
 

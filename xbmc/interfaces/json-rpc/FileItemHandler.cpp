@@ -382,6 +382,11 @@ void CFileItemHandler::HandleFileItem(const char* ID,
         if (item->HasPVRTimerInfoTag() && !item->GetPVRTimerInfoTag()->Path().empty())
           object["file"] = item->GetPVRTimerInfoTag()->Path().c_str();
 
+        // Plain folder items report their own path; library folders (TV shows, seasons,
+        // sets) keep the real filesystem path from their info tag set above.
+        if (!object.isMember("file") && item->IsFolder())
+          object["file"] = item->GetPath().c_str();
+
         if (!object.isMember("file"))
           object["file"] = item->GetDynPath().c_str();
       }

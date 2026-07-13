@@ -450,6 +450,7 @@ void CProfileManager::FinalizeLoadProfile()
 void CProfileManager::LogOff()
 {
   CNetworkBase &networkManager = CServiceBroker::GetNetwork();
+  const bool wasMasterProfile = IsMasterProfile();
 
   g_application.StopPlaying();
 
@@ -469,6 +470,12 @@ void CProfileManager::LogOff()
   CServiceBroker::GetDatabaseManager().Deinitialize();
 
   LoadMasterProfileForLogin();
+
+  // Loading a non-master profile back into the master profile restarts services in
+  // FinalizeLoadProfile(). Logging off the master profile does not reload it, so restore the
+  // services stopped above explicitly.
+  if (wasMasterProfile)
+    networkManager.NetworkMessage(CNetworkBase::SERVICES_UP, 1);
 
   g_passwordManager.bMasterUser = false;
 

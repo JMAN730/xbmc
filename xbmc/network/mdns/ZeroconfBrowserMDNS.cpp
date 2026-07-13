@@ -14,6 +14,7 @@
 #include "utils/log.h"
 
 #include <mutex>
+#include <string>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -121,6 +122,17 @@ void DNSSD_API CZeroconfBrowserMDNS::GetAddrInfoCallback(DNSServiceRef          
 
   if (address->sa_family == AF_INET)
     strIP = inet_ntoa(((const struct sockaddr_in *)address)->sin_addr);
+  else if (address->sa_family == AF_INET6)
+  {
+    const auto* address6 = reinterpret_cast<const struct sockaddr_in6*>(address);
+    char addressBuffer[INET6_ADDRSTRLEN];
+    if (inet_ntop(AF_INET6, &address6->sin6_addr, addressBuffer, sizeof(addressBuffer)))
+    {
+      strIP = addressBuffer;
+      if (IN6_IS_ADDR_LINKLOCAL(&address6->sin6_addr))
+        strIP += '%' + std::to_string(interfaceIndex);
+    }
+  }
 
   p_instance->m_resolving_service.SetIP(strIP);
   p_instance->m_addrinfo_event.Set();

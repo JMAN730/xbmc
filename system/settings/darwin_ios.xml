@@ -79,4 +79,13 @@
       </group>
     </category>
   </section>
+  <section id="services">
+    <category id="smb">
+      <group id="3">
+        <setting id="services.wsdiscovery">
+          <default>false</default>
+        </setting>
+      </group>
+    </category>
+  </section>
 </settings>

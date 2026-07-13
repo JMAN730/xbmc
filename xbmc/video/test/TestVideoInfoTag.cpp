@@ -6,6 +6,7 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "FileItem.h"
 #include "test/TestUtils.h"
 #include "utils/XBMCTinyXML.h"
 #include "video/VideoInfoTag.h"
@@ -171,3 +172,32 @@ TEST_P(OriginalLanguageTester, SetOriginalLanguage)
 INSTANTIATE_TEST_SUITE_P(TestVideoInfoTag,
                          OriginalLanguageTester,
                          testing::ValuesIn(OriginalLanguageTests));
+
+TEST(TestVideoInfoTag, FileSizePropagatesToFileItem)
+{
+  CVideoInfoTag tag;
+  tag.m_strFileNameAndPath = "/videos/movie.mkv";
+  tag.m_fileSize = 123456789;
+
+  const CFileItem item{tag};
+  EXPECT_EQ(123456789, item.GetSize());
+}
+
+TEST(TestVideoInfoTag, UnknownFileSizeDoesNotClobberItemSize)
+{
+  CVideoInfoTag tag;
+  tag.m_strFileNameAndPath = "/videos/movie.mkv";
+
+  CFileItem item{"/videos/movie.mkv", false};
+  item.SetSize(42);
+  item.SetFromVideoInfoTag(tag);
+  EXPECT_EQ(42, item.GetSize());
+}
+
+TEST(TestVideoInfoTag, ResetClearsFileSize)
+{
+  CVideoInfoTag tag;
+  tag.m_fileSize = 100;
+  tag.Reset();
+  EXPECT_EQ(0, tag.m_fileSize);
+}

@@ -237,7 +237,7 @@ void CGUIWindowMusicPlaylistEditor::DeleteRemoveableMediaDirectoryCache()
   CUtil::DeleteDirectoryCache("r-");
 }
 
-void CGUIWindowMusicPlaylistEditor::PlayItem(int iItem)
+void CGUIWindowMusicPlaylistEditor::PlayItem(int iItem, const std::string& player)
 {
   // unlike additemtoplaylist, we need to check the items here
   // before calling it since the current playlist will be stopped
@@ -252,7 +252,7 @@ void CGUIWindowMusicPlaylistEditor::PlayItem(int iItem)
     MEDIA_DETECT::CAutorun::PlayDiscAskResume(m_vecItems->Get(iItem)->GetPath());
   else
 #endif
-    CGUIWindowMusicBase::PlayItem(iItem);
+    CGUIWindowMusicBase::PlayItem(iItem, player);
 }
 
 void CGUIWindowMusicPlaylistEditor::OnQueueItem(int iItem, bool)

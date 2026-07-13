@@ -512,7 +512,13 @@ bool CGUIBaseContainer::OnAction(const CAction &action)
   default:
     break;
   }
-  return action.GetID() && OnClick(action.GetID());
+  // Only ACTION_PLAYER_PLAY carries a player core name (set by the PlayWith builtin)
+  // in the action name; for other actions the name is the keymap action word (e.g.
+  // "select") and must not be forwarded as a player.
+  std::string player;
+  if (action.GetID() == ACTION_PLAYER_PLAY && !StringUtils::EqualsNoCase(action.GetName(), "play"))
+    player = action.GetName();
+  return action.GetID() && OnClick(action.GetID(), player);
 }
 
 bool CGUIBaseContainer::OnMessage(CGUIMessage& message)
@@ -902,7 +908,7 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint& point, const MOUSE::C
   return EVENT_RESULT_UNHANDLED;
 }
 
-bool CGUIBaseContainer::OnClick(int actionID)
+bool CGUIBaseContainer::OnClick(int actionID, const std::string& player)
 {
   int subItem = 0;
   if (actionID == ACTION_SELECT_ITEM || actionID == ACTION_MOUSE_LEFT_CLICK)
@@ -937,6 +943,8 @@ bool CGUIBaseContainer::OnClick(int actionID)
   }
   // Don't know what to do, so send to our parent window.
   CGUIMessage msg(GUI_MSG_CLICKED, GetID(), GetParentID(), actionID, subItem);
+  if (!player.empty())
+    msg.SetStringParam(player);
   return SendWindowMessage(msg);
 }
 
@@ -1164,8 +1172,13 @@ void CGUIBaseContainer::UpdateListProvider(bool forceRefresh /* = false */)
           }
         }
       }
-      if (!found && currentItem >= (int)m_items.size())
-        SelectItem(m_items.size()-1);
+      if (!found)
+      {
+        if (!current && !m_items.empty())
+          SelectItem(0);
+        else if (currentItem >= static_cast<int>(m_items.size()))
+          SelectItem(m_items.size() - 1);
+      }
       SetInvalid();
     }
     // always update the scroll by letter, as the list provider may have altered labels
@@ -1202,20 +1215,28 @@ void CGUIBaseContainer::UpdateScrollByLetter()
   m_letterOffsets.reserve(30); // Pre-allocate for typical alphabet size
 
   // for scrolling by letter we have an offset table into our vector.
-  std::string currentMatch;
+  std::wstring currentMatch;
   for (unsigned int i = 0; i < m_items.size(); i++)
   {
     std::shared_ptr<CGUIListItem> item = m_items[i];
-    // The letter offset jumping is only for ASCII characters at present, and
-    // our checks are all done in uppercase
-    std::string nextLetter;
+    // Group accented variants by their primary collation letter.
     std::wstring character = item->GetSortLabel().substr(0, 1);
     StringUtils::ToUpper(character);
-    g_charsetConverter.wToUTF8(character, nextLetter);
-    if (currentMatch != nextLetter)
+    std::wstring displayLetter = character;
+    if (!character.empty())
     {
-      currentMatch = nextLetter;
-      m_letterOffsets.emplace_back(static_cast<int>(i), currentMatch);
+      character[0] = StringUtils::GetCollationWeight(character[0]);
+      // Nordic collation uses synthetic weights after 'z' for ordering. Keep the original
+      // letter for the UI instead of exposing those internal weights.
+      if (!StringUtils::IsNordicCollationWeight(character[0]))
+        displayLetter[0] = character[0];
+    }
+    if (currentMatch != character)
+    {
+      currentMatch = character;
+      std::string nextLetter;
+      g_charsetConverter.wToUTF8(displayLetter, nextLetter);
+      m_letterOffsets.emplace_back(static_cast<int>(i), std::move(nextLetter));
     }
   }
 }

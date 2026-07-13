@@ -79,6 +79,17 @@ TEST_F(TestDateTime, TimeTOperators)
   EXPECT_FALSE(dateTime1 == time);
 }
 
+TEST_F(TestDateTime, GetTimezoneBiasBeforeUnixEpoch)
+{
+  KODI::TIME::SystemTime time{};
+  time.year = 1969;
+  time.month = 12;
+  time.day = 31;
+
+  const auto result = KODI::TIME::GetTimezoneBias(time);
+  EXPECT_TRUE(std::get<0>(result));
+}
+
 TEST_F(TestDateTime, TmOperators)
 {
   {

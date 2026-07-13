@@ -50,6 +50,10 @@ CGUIListGroup::CGUIListGroup(const CGUIListGroup &right)
 CGUIListGroup::~CGUIListGroup(void)
 {
   FreeResources();
+  // The parent is the owning container, which does not own this group (it lives in a
+  // CGUIListItemLayout on a list item that can outlive the container). Detach here so
+  // ~CGUIControl does not notify a possibly already-destroyed parent.
+  m_parentControl = nullptr;
 }
 
 void CGUIListGroup::AddControl(CGUIControl *control, int position /*= -1*/)

@@ -36,6 +36,17 @@ void CLangCodeExpander::Clear()
   m_mapUser.clear();
 }
 
+std::string CLangCodeExpander::GetBaseLanguageName(const std::string& language)
+{
+  const auto openParen = language.find('(');
+  if (openParen == std::string::npos)
+    return language;
+
+  std::string baseLanguage = language.substr(0, openParen);
+  StringUtils::TrimRight(baseLanguage);
+  return baseLanguage;
+}
+
 void CLangCodeExpander::LoadUserCodes(const TiXmlElement* pRootElement)
 {
   if (pRootElement != nullptr)

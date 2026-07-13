@@ -283,6 +283,14 @@ public:
                                                  int nKey2,
                                                  const void* pKey2) noexcept;
 
+  /*! \brief Get the primary collation weight for a Unicode codepoint.
+   *
+   * Accented variants are folded to their base letter, except for configured Nordic language
+   * overrides that treat certain characters as distinct letters. MySQL collation keeps its
+   * generic accent-folding behavior.
+   */
+  [[nodiscard]] static wchar_t GetCollationWeight(wchar_t codepoint) noexcept;
+
   /*! \brief Get the Nordic-language-specific collation weight of a codepoint, if any.
    *
    * The generic accent-folding fallback used by AlphaNumericCompare()/AlphaNumericCollation()
@@ -297,6 +305,13 @@ public:
    */
   [[nodiscard]] static wchar_t GetNordicCollationWeight(std::string_view languageCode,
                                                         wchar_t codepoint) noexcept;
+
+  /*! \brief Check whether a collation weight is one of the synthetic after-'z' values
+   * produced by GetNordicCollationWeight().
+   * \param weight a collation weight, e.g. as returned by GetCollationWeight()
+   * \return true if the weight is a Nordic end-of-alphabet override, false otherwise
+   */
+  [[nodiscard]] static bool IsNordicCollationWeight(wchar_t weight) noexcept;
   [[nodiscard]] static long TimeStringToSeconds(std::string_view timeString);
   static void RemoveCRLF(std::string& strLine) noexcept;
 

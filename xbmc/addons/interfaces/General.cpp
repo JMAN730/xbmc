@@ -96,7 +96,7 @@ char* Interface_General::get_language(void* kodiBase, int format, bool region)
     case LANG_FMT_ISO_639_1:
     {
       std::string langCode;
-      g_LangCodeExpander.ConvertToISO6391(string, langCode);
+      g_LangCodeExpander.ConvertToISO6391(CLangCodeExpander::GetBaseLanguageName(string), langCode);
       string = langCode;
       if (region)
       {
@@ -110,7 +110,7 @@ char* Interface_General::get_language(void* kodiBase, int format, bool region)
     case LANG_FMT_ISO_639_2:
     {
       std::string langCode;
-      g_LangCodeExpander.ConvertToISO6392B(string, langCode);
+      g_LangCodeExpander.ConvertToISO6392B(CLangCodeExpander::GetBaseLanguageName(string), langCode);
       string = langCode;
       if (region)
       {

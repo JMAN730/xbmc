@@ -13,6 +13,7 @@
 #include "FileItem.h"
 #include "FileItemList.h"
 #include "ServiceBroker.h"
+#include "cores/VideoPlayer/Interface/TimingConstants.h"
 #include "filesystem/StackDirectory.h"
 #include "guilib/Texture.h"
 #include "network/NetworkFileItemClassify.h"
@@ -175,6 +176,8 @@ std::unique_ptr<CTexture> CDVDFileInfo::ExtractThumbToTexture(const CFileItem& f
       {
         CDVDVideoCodec::VCReturn iDecoderState = CDVDVideoCodec::VC_NONE;
         VideoPicture picture = {};
+        VideoPicture lastGoodPicture = {};
+        bool hasValidPicture = false;
 
         // num streams * 160 frames, should get a valid frame, if not abort.
         int abort_index = demuxer->GetNrOfStreams() * 160;
@@ -201,42 +204,52 @@ std::unique_ptr<CTexture> CDVDFileInfo::ExtractThumbToTexture(const CFileItem& f
             iDecoderState = pVideoCodec->GetPicture(&picture);
           }
 
-          if (iDecoderState == CDVDVideoCodec::VC_PICTURE)
+          if (iDecoderState == CDVDVideoCodec::VC_PICTURE && !(picture.iFlags & DVP_FLAG_DROPPED))
           {
-            if (!(picture.iFlags & DVP_FLAG_DROPPED))
+            hasValidPicture = true;
+            // keep a reference: a later decode attempt may overwrite picture with a dropped frame
+            lastGoodPicture.CopyRef(picture);
+            // A backwards seek lands on the keyframe at or before the target time, which can be
+            // well before the actual chapter start. Keep decoding forward until a picture at (or
+            // after) the requested position is reached, so the thumbnail shows the start of the
+            // chapter rather than the tail of the previous one. If the target is never reached
+            // (e.g. end of stream), the last successfully decoded picture is kept as a fallback.
+            if (!seekToChapter || picture.pts == DVD_NOPTS_VALUE ||
+                DVD_TIME_TO_MSEC(picture.pts) >= nSeekTo)
               break;
           }
 
         } while (abort_index--);
 
-        if (iDecoderState == CDVDVideoCodec::VC_PICTURE && !(picture.iFlags & DVP_FLAG_DROPPED))
+        if (hasValidPicture)
         {
           unsigned int nWidth =
-              std::min(picture.iDisplayWidth,
+              std::min(lastGoodPicture.iDisplayWidth,
                        CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageRes);
-          double aspect = (double)picture.iDisplayWidth / (double)picture.iDisplayHeight;
+          double aspect =
+              (double)lastGoodPicture.iDisplayWidth / (double)lastGoodPicture.iDisplayHeight;
           if (hint.forced_aspect && hint.aspect != 0)
             aspect = hint.aspect;
           unsigned int nHeight = (unsigned int)((double)nWidth / aspect);
 
           result = CTexture::CreateTexture(nWidth, nHeight);
           result->SetAlpha(false);
-          struct SwsContext* context =
-              sws_getContext(picture.iWidth, picture.iHeight, AV_PIX_FMT_YUV420P, nWidth, nHeight,
-                             AV_PIX_FMT_BGRA, SWS_FAST_BILINEAR, NULL, NULL, NULL);
+          struct SwsContext* context = sws_getContext(
+              lastGoodPicture.iWidth, lastGoodPicture.iHeight, AV_PIX_FMT_YUV420P, nWidth, nHeight,
+              AV_PIX_FMT_BGRA, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 
           if (context)
           {
             uint8_t* planes[YuvImage::MAX_PLANES];
             int stride[YuvImage::MAX_PLANES];
-            picture.videoBuffer->GetPlanes(planes);
-            picture.videoBuffer->GetStrides(stride);
+            lastGoodPicture.videoBuffer->GetPlanes(planes);
+            lastGoodPicture.videoBuffer->GetStrides(stride);
             uint8_t* src[4] = {planes[0], planes[1], planes[2], 0};
             int srcStride[] = {stride[0], stride[1], stride[2], 0};
             uint8_t* dst[] = {result->GetPixels(), 0, 0, 0};
             int dstStride[] = {static_cast<int>(result->GetPitch()), 0, 0, 0};
             result->SetOrientation(DegreeToOrientation(hint.orientation));
-            sws_scale(context, src, srcStride, 0, picture.iHeight, dst, dstStride);
+            sws_scale(context, src, srcStride, 0, lastGoodPicture.iHeight, dst, dstStride);
             sws_freeContext(context);
           }
         }

@@ -30,6 +30,7 @@
 #ifdef HAS_CDDA_RIPPER
 #include "cdrip/CDDARipper.h"
 #endif
+#include "cores/playercorefactory/PlayerCoreFactory.h"
 #include "dialogs/GUIDialogMediaSource.h"
 #include "dialogs/GUIDialogProgress.h"
 #include "dialogs/GUIDialogSmartPlaylistEditor.h"
@@ -75,6 +76,8 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
+#include <vector>
 
 using namespace XFILE;
 using namespace MUSICDATABASEDIRECTORY;
@@ -240,7 +243,20 @@ bool CGUIWindowMusicBase::OnMessage(CGUIMessage& message)
           }
 
           // not playing audio, or playback speed == 1
-          PlayItem(iItem);
+
+          // The message's string param is a player core name only if it was set by
+          // e.g. the PlayWith(core) builtin; for keymap-driven actions it contains
+          // the keymap action string. Only accept names of known players.
+          std::string player{message.GetStringParam()};
+          if (!player.empty())
+          {
+            std::vector<std::string> players;
+            CServiceBroker::GetPlayerCoreFactory().GetPlayers(players);
+            if (std::ranges::find(players, player) == players.end())
+              player.clear();
+          }
+
+          PlayItem(iItem, player);
 
           return true;
         }
@@ -603,7 +619,7 @@ void CGUIWindowMusicBase::OnRipTrack(int iItem)
   }
 }
 
-void CGUIWindowMusicBase::PlayItem(int iItem)
+void CGUIWindowMusicBase::PlayItem(int iItem, const std::string& player)
 {
   // restrictions should be placed in the appropriate window code
   // only call the base code if the item passes since this clears
@@ -673,7 +689,7 @@ void CGUIWindowMusicBase::PlayItem(int iItem)
   {
     // just a single item, play it
     //! @todo Add music-specific code for single playback of an item here (See OnClick in MediaWindow, and OnPlayMedia below)
-    OnClick(iItem);
+    OnClick(iItem, player);
   }
 }
 

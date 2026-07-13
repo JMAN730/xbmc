@@ -63,6 +63,12 @@ public:
   */
   bool CompareISO639Codes(const std::string& code1, const std::string& code2);
 
+  /** \brief Strips a region suffix in parentheses from a language name.
+  *   \param[in] language The language name, e.g. "Portuguese (Brazil)".
+  *   \return The base language name, e.g. "Portuguese".
+  */
+  static std::string GetBaseLanguageName(const std::string& language);
+
   /** \brief Converts a language given as 2-Char (ISO 639-1),
   *          3-Char (ISO 639-2/T or ISO 639-2/B),
   *          or full english name string to a 2-Char (ISO 639-1) code.

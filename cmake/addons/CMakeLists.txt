@@ -82,7 +82,8 @@ endif()
 
 include(${CORE_SOURCE_DIR}/cmake/scripts/common/CompilerSettings.cmake)
 
-set(BUILD_ARGS -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
+string(REPLACE ";" "\\;" CMAKE_PREFIX_PATH_ARG "${CMAKE_PREFIX_PATH}")
+set(BUILD_ARGS "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH_ARG}"
                -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                -DPACKAGE_CONFIG_PATH=${ADDON_DEPENDS_PATH}/lib/pkgconfig
                -DADDON_DEPENDS_PATH=${ADDON_DEPENDS_PATH}
@@ -120,7 +121,7 @@ endif()
 if(CMAKE_TOOLCHAIN_FILE)
   list(APPEND BUILD_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
   message(STATUS "Toolchain specified")
-  message(STATUS ${BUILD_ARGS})
+  message(STATUS "${BUILD_ARGS}")
 endif()
 
 # used for addons where need special folders to store there content (if

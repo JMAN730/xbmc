@@ -85,7 +85,11 @@ CGUIControl::CGUIControl(int parentID, int controlID, float posX, float posY, fl
 
 CGUIControl::CGUIControl(const CGUIControl &) = default;
 
-CGUIControl::~CGUIControl(void) = default;
+CGUIControl::~CGUIControl(void)
+{
+  if (m_parentControl)
+    m_parentControl->OnChildDestroyed(this);
+}
 
 void CGUIControl::AllocResources()
 {

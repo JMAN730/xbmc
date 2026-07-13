@@ -535,6 +535,7 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
   try
   {
     const CDateTime finalDateAdded{GetDateAdded(fileAndPath, fileInfo.m_dateAdded)};
+    const int64_t finalFileSize{GetFileSize(fileAndPath, fileInfo.m_fileSize)};
 
     std::string strFileName;
     std::string strPath;
@@ -549,6 +550,7 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
     const std::string lastPlayed{fileInfo.m_lastPlayed.IsValid()
                                      ? "'" + fileInfo.m_lastPlayed.GetAsDBDateTime() + "'"
                                      : "NULL"};
+    const std::string fileSize{finalFileSize > 0 ? std::to_string(finalFileSize) : "NULL"};
 
     sql = PrepareSQL("SELECT idFile FROM files WHERE strFileName = '%s' AND idPath=%i",
                      strFileName.c_str(), idPath);
@@ -561,6 +563,10 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
 
       if (existsAction == FileExistsAction::ACTION_UPDATE)
       {
+        // keep the stored file size if the current one could not be determined
+        const std::string fileSizeUpdate{
+            finalFileSize > 0 ? ", fileSize = " + fileSize + " " : " "};
+
         sql = PrepareSQL("UPDATE files "
                          "SET playCount = " +
                              playCount +
@@ -568,7 +574,8 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
                              "lastPlayed = " +
                              lastPlayed +
                              ", "
-                             "dateAdded = '%s' "
+                             "dateAdded = '%s'" +
+                             fileSizeUpdate +
                              "WHERE idFile = %i",
                          finalDateAdded.GetAsDBDateTime().c_str(), idFile);
 
@@ -580,11 +587,11 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
 
     m_pDS->close();
 
-    sql = PrepareSQL(
-        "INSERT INTO files (idFile, idPath, strFileName, playCount, lastPlayed, dateAdded) "
-        "VALUES(NULL, %i, '%s', " +
-            playCount + ", " + lastPlayed + ", '%s')",
-        idPath, strFileName.c_str(), finalDateAdded.GetAsDBDateTime().c_str());
+    sql = PrepareSQL("INSERT INTO files (idFile, idPath, strFileName, playCount, lastPlayed, "
+                     "dateAdded, fileSize) "
+                     "VALUES(NULL, %i, '%s', " +
+                         playCount + ", " + lastPlayed + ", '%s', " + fileSize + ")",
+                     idPath, strFileName.c_str(), finalDateAdded.GetAsDBDateTime().c_str());
 
     m_pDS->exec(sql);
 
@@ -2172,6 +2179,8 @@ bool CVideoDatabase::GetFileInfo(const std::string& strFilenameAndPath, CVideoIn
       details.m_lastPlayed.SetFromDBDateTime(m_pDS->fv("files.lastPlayed").get_asString());
     if (!details.m_dateAdded.IsValid())
       details.m_dateAdded.SetFromDBDateTime(m_pDS->fv("files.dateAdded").get_asString());
+    if (details.m_fileSize <= 0)
+      details.m_fileSize = m_pDS->fv("files.fileSize").get_asInt64();
     if (!details.GetResumePoint().IsSet() ||
         (!details.GetResumePoint().HasSavedPlayerState() &&
          !m_pDS->fv("bookmark.playerState").get_asString().empty()))
@@ -4672,6 +4681,7 @@ CVideoInfoTag CVideoDatabase::GetDetailsForMovie(const dbiplus::sql_record* cons
   details.SetPlayCount(record->at(VIDEODB_DETAILS_MOVIE_PLAYCOUNT).get_asInt());
   details.m_lastPlayed.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MOVIE_LASTPLAYED).get_asString());
   details.m_dateAdded.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MOVIE_DATEADDED).get_asString());
+  details.m_fileSize = record->at(VIDEODB_DETAILS_MOVIE_FILESIZE).get_asInt64();
   details.SetResumePoint(record->at(VIDEODB_DETAILS_MOVIE_RESUME_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MOVIE_TOTAL_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MOVIE_PLAYER_STATE).get_asString());
@@ -4877,6 +4887,7 @@ CVideoInfoTag CVideoDatabase::GetDetailsForEpisode(const dbiplus::sql_record* co
   details.SetPlayCount(record->at(VIDEODB_DETAILS_EPISODE_PLAYCOUNT).get_asInt());
   details.m_lastPlayed.SetFromDBDateTime(record->at(VIDEODB_DETAILS_EPISODE_LASTPLAYED).get_asString());
   details.m_dateAdded.SetFromDBDateTime(record->at(VIDEODB_DETAILS_EPISODE_DATEADDED).get_asString());
+  details.m_fileSize = record->at(VIDEODB_DETAILS_EPISODE_FILESIZE).get_asInt64();
   details.m_strMPAARating = record->at(VIDEODB_DETAILS_EPISODE_TVSHOW_MPAA).get_asString();
   details.m_strShowTitle = record->at(VIDEODB_DETAILS_EPISODE_TVSHOW_NAME).get_asString();
   details.m_genre = StringUtils::Split(record->at(VIDEODB_DETAILS_EPISODE_TVSHOW_GENRE).get_asString(), CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator);
@@ -4947,6 +4958,7 @@ CVideoInfoTag CVideoDatabase::GetDetailsForMusicVideo(const dbiplus::sql_record*
   details.SetPlayCount(record->at(VIDEODB_DETAILS_MUSICVIDEO_PLAYCOUNT).get_asInt());
   details.m_lastPlayed.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MUSICVIDEO_LASTPLAYED).get_asString());
   details.m_dateAdded.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MUSICVIDEO_DATEADDED).get_asString());
+  details.m_fileSize = record->at(VIDEODB_DETAILS_MUSICVIDEO_FILESIZE).get_asInt64();
   details.SetResumePoint(record->at(VIDEODB_DETAILS_MUSICVIDEO_RESUME_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MUSICVIDEO_TOTAL_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MUSICVIDEO_PLAYER_STATE).get_asString());
@@ -10045,7 +10057,22 @@ void CVideoDatabase::CleanDatabase(CGUIDialogProgressBarHandle* handle,
             exists = true;
         }
         else
-          exists = CDirectory::Exists(path, false);
+        {
+          // Only hit the network filesystem if the path still belongs to a configured
+          // source. Otherwise, e.g. after a network share has been removed from the
+          // sources, don't let the underlying filesystem implementation block for a long
+          // time trying to reach a share that no longer exists (see issue #217). Such a
+          // path may still be reachable under a URL form that differs from its source
+          // definition (e.g. IP vs hostname), so keep the row - with its content settings
+          // and scan hashes - rather than treating it as non-existent and deleting it.
+          bool bIsSourceName = false;
+          const bool sourceFound =
+              CUtil::GetMatchingSource(path, videoSources, bIsSourceName) >= 0;
+          if (sourceFound || !URIUtils::IsRemote(path))
+            exists = CDirectory::Exists(path, false);
+          else
+            exists = true;
+        }
 
         if (((pathsDeleteDecision != pathsDeleteDecisions.end() && pathsDeleteDecision->second) ||
              (pathsDeleteDecision == pathsDeleteDecisions.end() && !exists)) &&
@@ -12057,6 +12084,15 @@ CDateTime CVideoDatabase::GetDateAdded(const std::string& filename,
     }
 
   return dateAdded;
+}
+
+int64_t CVideoDatabase::GetFileSize(const std::string& filename, int64_t fileSize /* = 0 */)
+{
+  if (fileSize <= 0 && !URIUtils::IsPlugin(filename))
+    fileSize = CFileUtils::GetFileSize(filename);
+
+  // normalize the -1 failure value of CFileUtils::GetFileSize to the 0-if-unknown convention
+  return fileSize > 0 ? fileSize : 0;
 }
 
 void CVideoDatabase::EraseAllForPath(const std::string& path)

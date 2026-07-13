@@ -48,6 +48,27 @@ TEST_F(TestLabelFormatter, FormatLabel)
   EXPECT_TRUE(XBMC_DELETETEMPFILE(tmpfile));
 }
 
+TEST_F(TestLabelFormatter, FormatLabelHidesExtensionForUrlEncodedFilenames)
+{
+  auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+  const bool originalValue = settings->GetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS);
+  settings->SetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS, false);
+
+  LABEL_MASKS labelMasks;
+  CLabelFormatter formatter("%L", labelMasks.m_strLabel2File);
+
+  // the label is decoded ("file name.mkv"), while the item's path is still URL-encoded
+  // ("file%20name.mkv"), as would be the case for a davs:// source
+  CFileItemPtr item(new CFileItem("davs://server/files/file%20name.mkv", false));
+  item->SetLabel("file name.mkv");
+
+  formatter.FormatLabel(item.get());
+
+  EXPECT_EQ(item->GetLabel(), "file name");
+
+  settings->SetBool(CSettings::SETTING_FILELISTS_SHOWEXTENSIONS, originalValue);
+}
+
 TEST_F(TestLabelFormatter, FormatLabel2)
 {
   XFILE::CFile *tmpfile;

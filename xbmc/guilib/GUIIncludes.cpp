@@ -65,6 +65,23 @@ constexpr auto EXPRESSION_NODES = make_set<std::string_view>({
     "visible",
 });
 
+TiXmlElement* FindNested(TiXmlElement* node)
+{
+  if (node->ValueStr() == "nested")
+    return node;
+
+  TiXmlElement* child = node->FirstChildElement();
+  while (child)
+  {
+    if (TiXmlElement* nested = FindNested(child))
+      return nested;
+
+    child = child->NextSiblingElement();
+  }
+
+  return nullptr;
+}
+
 } // namespace
 
 using namespace KODI::GUILIB;
@@ -519,19 +536,8 @@ void CGUIIncludes::ResolveIncludes(TiXmlElement *node, std::map<INFO::InfoPtr, b
 
 void CGUIIncludes::InsertNested(TiXmlElement *controls, TiXmlElement *include, TiXmlElement *node)
 {
-  TiXmlElement *target;
-  TiXmlElement *nested;
-
-  if (node->ValueStr() == "nested")
-  {
-    nested = node;
-    target = controls;
-  }
-  else
-  {
-    nested = node->FirstChildElement("nested");
-    target = node;
-  }
+  TiXmlElement* nested = FindNested(node);
+  TiXmlElement* target = nested == node ? controls : nested ? nested->Parent()->ToElement() : nullptr;
 
   if (nested)
   {

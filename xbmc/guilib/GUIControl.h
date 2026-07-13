@@ -320,6 +320,8 @@ public:
   virtual void DumpTextureUse() {}
 #endif
 protected:
+  virtual void OnChildDestroyed(CGUIControl*) {}
+
   /*!
    \brief Return the coordinates of the top left of the control, in the control's parent coordinates
    \return The top left coordinates of the control

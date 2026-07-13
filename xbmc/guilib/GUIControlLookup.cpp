@@ -37,6 +37,11 @@ CGUIControl *CGUIControlLookup::GetControl(int iControl, std::vector<CGUIControl
   return pPotential;
 }
 
+void CGUIControlLookup::OnChildDestroyed(CGUIControl* control)
+{
+  RemoveLookup(control);
+}
+
 bool CGUIControlLookup::IsValidControl(const CGUIControl *control) const
 {
   if (control->GetID())

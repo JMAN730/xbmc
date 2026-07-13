@@ -14,6 +14,7 @@
 #include "PartyModeManager.h"
 #include "ServiceBroker.h"
 #include "Util.h"
+#include "XBDateTime.h"
 #include "dialogs/GUIDialogMediaSource.h"
 #include "dialogs/GUIDialogYesNo.h"
 #include "filesystem/Directory.h"
@@ -275,19 +276,45 @@ int CGUIWindowVideoNav::GetFirstUnwatchedItemIndex(bool includeAllSeasons, bool 
   int iIndex = 0;
   int iUnwatchedSeason = INT_MAX;
   int iUnwatchedEpisode = INT_MAX;
+  CDateTime firstUnwatchedAirDate;
   NodeType nodeType = CVideoDatabaseDirectory::GetDirectoryChildType(m_vecItems->GetPath());
+
+  const auto isCandidate = [includeAllSeasons, includeSpecials](const CFileItemPtr& pItem)
+  {
+    if (pItem->IsParentFolder() || !pItem->HasVideoInfoTag())
+      return false;
+
+    const CVideoInfoTag* pTag = pItem->GetVideoInfoTag();
+    return (includeAllSeasons || pTag->m_iSeason >= 0) &&
+           (includeSpecials || pTag->m_iSeason != 0);
+  };
+
+  // Air-date order is only well defined when every unwatched episode has an air date;
+  // mixing air-date and season/episode comparisons is not transitive and would make the
+  // result depend on list order.
+  bool useAirDateOrder = nodeType == NodeType::EPISODES;
+  if (useAirDateOrder)
+  {
+    for (int i = 0; i < m_vecItems->Size(); ++i)
+    {
+      CFileItemPtr pItem = m_vecItems->Get(i);
+      if (isCandidate(pItem) && pItem->GetVideoInfoTag()->GetPlayCount() == 0 &&
+          !pItem->GetVideoInfoTag()->m_firstAired.IsValid())
+      {
+        useAirDateOrder = false;
+        break;
+      }
+    }
+  }
 
   // Run through the list of items and find the first unwatched season/episode
   for (int i = 0; i < m_vecItems->Size(); ++i)
   {
     CFileItemPtr pItem = m_vecItems->Get(i);
-    if (pItem->IsParentFolder() || !pItem->HasVideoInfoTag())
+    if (!isCandidate(pItem))
       continue;
 
     CVideoInfoTag *pTag = pItem->GetVideoInfoTag();
-
-    if ((!includeAllSeasons && pTag->m_iSeason < 0) || (!includeSpecials && pTag->m_iSeason == 0))
-      continue;
 
     // Use the special sort values if they're available
     int iSeason = pTag->m_iSpecialSortSeason >= 0 ? pTag->m_iSpecialSortSeason : pTag->m_iSeason;
@@ -306,12 +333,17 @@ int CGUIWindowVideoNav::GetFirstUnwatchedItemIndex(bool includeAllSeasons, bool 
 
     if (nodeType == NodeType::EPISODES)
     {
-      // Is the episode unwatched, and is its season number lower
-      // or is its episode number lower within the current season
-      if (pTag->GetPlayCount() == 0 && (iSeason < iUnwatchedSeason || (iSeason == iUnwatchedSeason && iEpisode < iUnwatchedEpisode)))
+      const bool isEarlier = useAirDateOrder
+                                 ? !firstUnwatchedAirDate.IsValid() ||
+                                       pTag->m_firstAired < firstUnwatchedAirDate
+                                 : (iSeason < iUnwatchedSeason ||
+                                    (iSeason == iUnwatchedSeason && iEpisode < iUnwatchedEpisode));
+
+      if (pTag->GetPlayCount() == 0 && isEarlier)
       {
         iUnwatchedSeason = iSeason;
         iUnwatchedEpisode = iEpisode;
+        firstUnwatchedAirDate = pTag->m_firstAired;
         iIndex = i;
       }
     }
