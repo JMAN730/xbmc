@@ -392,6 +392,7 @@ void CGUIButtonControl::PythonSetLabel(const std::string& strFont,
   m_label.GetLabelInfo().textColor = textColor;
   m_label.GetLabelInfo().focusedColor = focusedColor;
   m_label.GetLabelInfo().shadowColor = shadowColor;
+  m_label2.SetLabelFont(g_fontManager.GetFont(strFont));
   SetLabel(strText);
 }
 
