@@ -40,5 +40,31 @@ TEST(TestFileUtils, DeleteItemString)
   EXPECT_FALSE(XBMC_DELETETEMPFILE(tmpfile));
 }
 
+TEST(TestFileUtils, GetFileSize)
+{
+  XFILE::CFile* tmpfile;
+  ASSERT_NE(nullptr, (tmpfile = XBMC_CREATETEMPFILE("")));
+  const std::string tmpfilepath = XBMC_TEMPFILEPATH(tmpfile);
+
+  const std::string content = "0123456789";
+  EXPECT_EQ(static_cast<ssize_t>(content.size()),
+            tmpfile->Write(content.data(), content.size()));
+  tmpfile->Close();
+
+  EXPECT_EQ(static_cast<int64_t>(content.size()), CFileUtils::GetFileSize(tmpfilepath));
+
+  XBMC_DELETETEMPFILE(tmpfile);
+}
+
+TEST(TestFileUtils, GetFileSizeNonExistingFile)
+{
+  EXPECT_EQ(-1, CFileUtils::GetFileSize("special://temp/does-not-exist-12345.mkv"));
+}
+
+TEST(TestFileUtils, GetFileSizeEmptyPath)
+{
+  EXPECT_EQ(-1, CFileUtils::GetFileSize(""));
+}
+
 /* Executing RenameFile() requires input from the user */
 // static bool RenameFile(const std::string &strFile);

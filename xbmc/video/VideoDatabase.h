@@ -17,6 +17,7 @@
 #include "utils/UrlOptions.h"
 
 #include <array>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <set>
@@ -364,6 +365,7 @@ public:
     int m_playCount{-1};
     CDateTime m_lastPlayed{};
     CDateTime m_dateAdded{};
+    int64_t m_fileSize{-1}; //!< file size in bytes, -1 if unknown
   };
 
   int SetFileForMedia(const std::string& fileAndPath,
@@ -776,6 +778,14 @@ public:
    \param details details of the video file
    */
   void UpdateFileDateAdded(CVideoInfoTag& details);
+
+  /*! \brief Updates the fileSize field in the files table for the file
+   with the given idFile and the given path, unless it is already known.
+   Used to backfill the file size of library items added before fileSize
+   tracking was introduced.
+   \param details details of the video file
+   */
+  void UpdateFileSize(CVideoInfoTag& details);
 
   void ExportToXML(const std::string &path, bool singleFile = true, bool images=false, bool actorThumbs=false, bool overwrite=false);
   void ExportArt(const CFileItem& item, const KODI::ART::Artwork& artwork, bool overwrite) const;
@@ -1265,4 +1275,11 @@ private:
   static void AnnounceUpdate(const std::string& content, int id);
 
   static CDateTime GetDateAdded(const std::string& filename, CDateTime dateAdded = CDateTime());
+
+  /*! \brief Determine the size of a file in bytes, unless already known.
+   \param filename path of the file
+   \param fileSize already known size in bytes, -1 if unknown
+   \return the file size in bytes, -1 if it could not be determined
+   */
+  static int64_t GetFileSize(const std::string& filename, int64_t fileSize = -1);
 };

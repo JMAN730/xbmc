@@ -1277,6 +1277,9 @@ void CVideoDatabase::UpdateTables(int iVersion)
 
   if (iVersion < 147)
   {
+    // File sizes of existing library items are populated on the next scan/refresh
+    m_pDS->exec("ALTER TABLE files ADD fileSize integer");
+
     constexpr int LOCAL_VIDEODB_ID_BASEPATH = 22;
     constexpr int LOCAL_VIDEODB_ID_PARENTPATHID = 23;
     constexpr int LOCAL_VIDEODB_ID_EPISODE_BASEPATH = 18;

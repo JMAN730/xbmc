@@ -535,6 +535,7 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
   try
   {
     const CDateTime finalDateAdded{GetDateAdded(fileAndPath, fileInfo.m_dateAdded)};
+    const int64_t finalFileSize{GetFileSize(fileAndPath, fileInfo.m_fileSize)};
 
     std::string strFileName;
     std::string strPath;
@@ -549,6 +550,7 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
     const std::string lastPlayed{fileInfo.m_lastPlayed.IsValid()
                                      ? "'" + fileInfo.m_lastPlayed.GetAsDBDateTime() + "'"
                                      : "NULL"};
+    const std::string fileSize{finalFileSize >= 0 ? std::to_string(finalFileSize) : "NULL"};
 
     sql = PrepareSQL("SELECT idFile FROM files WHERE strFileName = '%s' AND idPath=%i",
                      strFileName.c_str(), idPath);
@@ -561,6 +563,10 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
 
       if (existsAction == FileExistsAction::ACTION_UPDATE)
       {
+        // keep the stored file size if the current one could not be determined
+        const std::string fileSizeUpdate{
+            finalFileSize >= 0 ? ", fileSize = " + fileSize + " " : " "};
+
         sql = PrepareSQL("UPDATE files "
                          "SET playCount = " +
                              playCount +
@@ -568,7 +574,8 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
                              "lastPlayed = " +
                              lastPlayed +
                              ", "
-                             "dateAdded = '%s' "
+                             "dateAdded = '%s'" +
+                             fileSizeUpdate +
                              "WHERE idFile = %i",
                          finalDateAdded.GetAsDBDateTime().c_str(), idFile);
 
@@ -580,11 +587,11 @@ int CVideoDatabase::AddOrUpdateFile(const std::string& fileAndPath,
 
     m_pDS->close();
 
-    sql = PrepareSQL(
-        "INSERT INTO files (idFile, idPath, strFileName, playCount, lastPlayed, dateAdded) "
-        "VALUES(NULL, %i, '%s', " +
-            playCount + ", " + lastPlayed + ", '%s')",
-        idPath, strFileName.c_str(), finalDateAdded.GetAsDBDateTime().c_str());
+    sql = PrepareSQL("INSERT INTO files (idFile, idPath, strFileName, playCount, lastPlayed, "
+                     "dateAdded, fileSize) "
+                     "VALUES(NULL, %i, '%s', " +
+                         playCount + ", " + lastPlayed + ", '%s', " + fileSize + ")",
+                     idPath, strFileName.c_str(), finalDateAdded.GetAsDBDateTime().c_str());
 
     m_pDS->exec(sql);
 
@@ -639,6 +646,33 @@ void CVideoDatabase::UpdateFileDateAdded(CVideoInfoTag& details)
   {
     CLog::LogF(LOGERROR, "({}, {}) failed", CURL::GetRedacted(details.GetPath()),
                finalDateAdded.GetAsDBDateTime());
+  }
+}
+
+void CVideoDatabase::UpdateFileSize(CVideoInfoTag& details)
+{
+  if (details.GetPath().empty() || GetAndFillFileId(details) <= 0)
+    return;
+
+  try
+  {
+    if (nullptr == m_pDB)
+      return;
+    if (nullptr == m_pDS)
+      return;
+
+    // details.m_fileSize is 0 (rather than -1) when unknown, so translate it for GetFileSize()
+    const int64_t finalFileSize{
+        GetFileSize(details.GetPath(), details.m_fileSize > 0 ? details.m_fileSize : -1)};
+    if (finalFileSize < 0)
+      return;
+
+    m_pDS->exec(PrepareSQL("UPDATE files SET fileSize=%s WHERE idFile=%d",
+                           std::to_string(finalFileSize).c_str(), details.m_iFileId));
+  }
+  catch (...)
+  {
+    CLog::LogF(LOGERROR, "({}) failed", CURL::GetRedacted(details.GetPath()));
   }
 }
 
@@ -2172,6 +2206,8 @@ bool CVideoDatabase::GetFileInfo(const std::string& strFilenameAndPath, CVideoIn
       details.m_lastPlayed.SetFromDBDateTime(m_pDS->fv("files.lastPlayed").get_asString());
     if (!details.m_dateAdded.IsValid())
       details.m_dateAdded.SetFromDBDateTime(m_pDS->fv("files.dateAdded").get_asString());
+    if (details.m_fileSize <= 0)
+      details.m_fileSize = m_pDS->fv("files.fileSize").get_asInt64();
     if (!details.GetResumePoint().IsSet() ||
         (!details.GetResumePoint().HasSavedPlayerState() &&
          !m_pDS->fv("bookmark.playerState").get_asString().empty()))
@@ -2277,6 +2313,9 @@ int CVideoDatabase::SetDetailsForMovie(CVideoInfoTag& details,
     // update dateadded if it's set
     if (details.m_dateAdded.IsValid())
       UpdateFileDateAdded(details);
+
+    // backfill fileSize if it isn't known yet
+    UpdateFileSize(details);
 
     AddCast(idMovie, "movie", details.m_cast);
     AddLinksToItem(idMovie, MediaTypeMovie, "genre", details.m_genre);
@@ -2961,6 +3000,9 @@ int CVideoDatabase::SetDetailsForEpisode(CVideoInfoTag& details,
     if (details.m_dateAdded.IsValid())
       UpdateFileDateAdded(details);
 
+    // backfill fileSize if it isn't known yet
+    UpdateFileSize(details);
+
     AddCast(idEpisode, "episode", details.m_cast);
     AddActorLinksToItem(idEpisode, MediaTypeEpisode, "director", details.m_director);
     AddActorLinksToItem(idEpisode, MediaTypeEpisode, "writer", details.m_writingCredits);
@@ -3070,6 +3112,9 @@ int CVideoDatabase::SetDetailsForMusicVideo(CVideoInfoTag& details,
     // update dateadded if it's set
     if (details.m_dateAdded.IsValid())
       UpdateFileDateAdded(details);
+
+    // backfill fileSize if it isn't known yet
+    UpdateFileSize(details);
 
     AddCast(idMVideo, MediaTypeMusicVideo, details.m_cast);
     AddActorLinksToItem(idMVideo, MediaTypeMusicVideo, "actor", details.m_artist);
@@ -4672,6 +4717,7 @@ CVideoInfoTag CVideoDatabase::GetDetailsForMovie(const dbiplus::sql_record* cons
   details.SetPlayCount(record->at(VIDEODB_DETAILS_MOVIE_PLAYCOUNT).get_asInt());
   details.m_lastPlayed.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MOVIE_LASTPLAYED).get_asString());
   details.m_dateAdded.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MOVIE_DATEADDED).get_asString());
+  details.m_fileSize = record->at(VIDEODB_DETAILS_MOVIE_FILESIZE).get_asInt64();
   details.SetResumePoint(record->at(VIDEODB_DETAILS_MOVIE_RESUME_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MOVIE_TOTAL_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MOVIE_PLAYER_STATE).get_asString());
@@ -4877,6 +4923,7 @@ CVideoInfoTag CVideoDatabase::GetDetailsForEpisode(const dbiplus::sql_record* co
   details.SetPlayCount(record->at(VIDEODB_DETAILS_EPISODE_PLAYCOUNT).get_asInt());
   details.m_lastPlayed.SetFromDBDateTime(record->at(VIDEODB_DETAILS_EPISODE_LASTPLAYED).get_asString());
   details.m_dateAdded.SetFromDBDateTime(record->at(VIDEODB_DETAILS_EPISODE_DATEADDED).get_asString());
+  details.m_fileSize = record->at(VIDEODB_DETAILS_EPISODE_FILESIZE).get_asInt64();
   details.m_strMPAARating = record->at(VIDEODB_DETAILS_EPISODE_TVSHOW_MPAA).get_asString();
   details.m_strShowTitle = record->at(VIDEODB_DETAILS_EPISODE_TVSHOW_NAME).get_asString();
   details.m_genre = StringUtils::Split(record->at(VIDEODB_DETAILS_EPISODE_TVSHOW_GENRE).get_asString(), CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator);
@@ -4947,6 +4994,7 @@ CVideoInfoTag CVideoDatabase::GetDetailsForMusicVideo(const dbiplus::sql_record*
   details.SetPlayCount(record->at(VIDEODB_DETAILS_MUSICVIDEO_PLAYCOUNT).get_asInt());
   details.m_lastPlayed.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MUSICVIDEO_LASTPLAYED).get_asString());
   details.m_dateAdded.SetFromDBDateTime(record->at(VIDEODB_DETAILS_MUSICVIDEO_DATEADDED).get_asString());
+  details.m_fileSize = record->at(VIDEODB_DETAILS_MUSICVIDEO_FILESIZE).get_asInt64();
   details.SetResumePoint(record->at(VIDEODB_DETAILS_MUSICVIDEO_RESUME_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MUSICVIDEO_TOTAL_TIME).get_asInt(),
                          record->at(VIDEODB_DETAILS_MUSICVIDEO_PLAYER_STATE).get_asString());
@@ -12061,6 +12109,14 @@ CDateTime CVideoDatabase::GetDateAdded(const std::string& filename,
     }
 
   return dateAdded;
+}
+
+int64_t CVideoDatabase::GetFileSize(const std::string& filename, int64_t fileSize /* = -1 */)
+{
+  if (fileSize < 0 && !URIUtils::IsPlugin(filename))
+    fileSize = CFileUtils::GetFileSize(filename);
+
+  return fileSize;
 }
 
 void CVideoDatabase::EraseAllForPath(const std::string& path)
