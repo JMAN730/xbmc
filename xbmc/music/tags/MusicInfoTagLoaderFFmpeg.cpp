@@ -87,9 +87,17 @@ bool CMusicInfoTagLoaderFFmpeg::Load(const std::string& strFileName, CMusicInfoT
         (StringUtils::EqualsNoCase(filenameTag->value, "cover.jpg") ||
          StringUtils::EqualsNoCase(filenameTag->value, "cover.png")))
     {
-      tag.SetCoverArtInfo(stream->attached_pic.size, mimeTag->value);
-      if (art)
-        art->Set(stream->attached_pic.data, stream->attached_pic.size, mimeTag->value);
+      // Validate attached picture data before publishing cover art metadata.
+      // Malformed/empty packets (null data or zero size) would cause undefined behavior
+      // in EmbeddedArt::Set (which does m_data.assign(data, data+size)).
+      if (stream->attached_pic.data != nullptr && stream->attached_pic.size > 0)
+      {
+        tag.SetCoverArtInfo(stream->attached_pic.size, mimeTag->value);
+        if (art)
+          art->Set(stream->attached_pic.data, stream->attached_pic.size, mimeTag->value);
+      }
+      // Per Matroska cover art guidelines, only one cover stream is expected,
+      // so break even if this attachment was invalid (no point continuing to scan).
       break;
     }
   }
