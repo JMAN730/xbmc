@@ -36,10 +36,7 @@ bool CVideoSyncWpPresentation::Setup()
     // The compositor has not (yet) sent a wp_presentation_feedback::sync_output event,
     // so the real refresh rate is not known yet. Fall back to a sane default to avoid
     // a division by zero further down the line (e.g. in CVideoReferenceClock).
-    CLog::Log(LOGWARNING,
-              "CVideoSyncWpPresentation::{} - sync output refresh rate not yet known, defaulting "
-              "to 60 Hz",
-              __FUNCTION__);
+    CLog::LogF(LOGWARNING, "sync output refresh rate not yet known, defaulting to 60 Hz");
     m_fps = 60.0f;
   }
 
