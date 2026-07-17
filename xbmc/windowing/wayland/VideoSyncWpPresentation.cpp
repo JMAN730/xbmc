@@ -75,7 +75,11 @@ void CVideoSyncWpPresentation::HandlePresentation(timespec tv, std::uint32_t ref
             static_cast<std::uint64_t>(tv.tv_sec), static_cast<std::uint64_t>(tv.tv_nsec), refresh,
             1.0e9 / refresh, syncOutputID, syncOutputRefreshRate, msc, mscDiff);
 
-  if (m_fps != syncOutputRefreshRate || (m_syncOutputID != 0 && m_syncOutputID != syncOutputID))
+  // A syncOutputRefreshRate of 0 means the compositor has not reported a real rate yet
+  // (e.g. presented before sync_output), so it must not be compared against m_fps or it
+  // would spuriously look like a refresh rate change and restart video sync forever.
+  if ((syncOutputRefreshRate > 0.0f && m_fps != syncOutputRefreshRate) ||
+      (m_syncOutputID != 0 && m_syncOutputID != syncOutputID))
   {
     // Restart if fps changes or sync output changes (which means that the msc jumps)
     CLog::Log(LOGDEBUG, "fps or sync output changed, restarting Wayland video sync");
