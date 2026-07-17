@@ -779,6 +779,14 @@ public:
    */
   void UpdateFileDateAdded(CVideoInfoTag& details);
 
+  /*! \brief Updates the fileSize field in the files table for the file
+   with the given idFile and the given path, unless it is already known.
+   Used to backfill the file size of library items added before fileSize
+   tracking was introduced.
+   \param details details of the video file
+   */
+  void UpdateFileSize(CVideoInfoTag& details);
+
   void ExportToXML(const std::string &path, bool singleFile = true, bool images=false, bool actorThumbs=false, bool overwrite=false);
   void ExportArt(const CFileItem& item, const KODI::ART::Artwork& artwork, bool overwrite) const;
   void ExportActorThumbs(const std::string& path,

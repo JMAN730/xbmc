@@ -649,6 +649,33 @@ void CVideoDatabase::UpdateFileDateAdded(CVideoInfoTag& details)
   }
 }
 
+void CVideoDatabase::UpdateFileSize(CVideoInfoTag& details)
+{
+  if (details.GetPath().empty() || GetAndFillFileId(details) <= 0)
+    return;
+
+  try
+  {
+    if (nullptr == m_pDB)
+      return;
+    if (nullptr == m_pDS)
+      return;
+
+    // details.m_fileSize is 0 (rather than -1) when unknown, so translate it for GetFileSize()
+    const int64_t finalFileSize{
+        GetFileSize(details.GetPath(), details.m_fileSize > 0 ? details.m_fileSize : -1)};
+    if (finalFileSize < 0)
+      return;
+
+    m_pDS->exec(PrepareSQL("UPDATE files SET fileSize=%s WHERE idFile=%d",
+                           std::to_string(finalFileSize).c_str(), details.m_iFileId));
+  }
+  catch (...)
+  {
+    CLog::LogF(LOGERROR, "({}) failed", CURL::GetRedacted(details.GetPath()));
+  }
+}
+
 bool CVideoDatabase::SetPathHash(const std::string &path, const std::string &hash)
 {
   try
@@ -2287,6 +2314,9 @@ int CVideoDatabase::SetDetailsForMovie(CVideoInfoTag& details,
     if (details.m_dateAdded.IsValid())
       UpdateFileDateAdded(details);
 
+    // backfill fileSize if it isn't known yet
+    UpdateFileSize(details);
+
     AddCast(idMovie, "movie", details.m_cast);
     AddLinksToItem(idMovie, MediaTypeMovie, "genre", details.m_genre);
     AddLinksToItem(idMovie, MediaTypeMovie, "studio", details.m_studio);
@@ -2970,6 +3000,9 @@ int CVideoDatabase::SetDetailsForEpisode(CVideoInfoTag& details,
     if (details.m_dateAdded.IsValid())
       UpdateFileDateAdded(details);
 
+    // backfill fileSize if it isn't known yet
+    UpdateFileSize(details);
+
     AddCast(idEpisode, "episode", details.m_cast);
     AddActorLinksToItem(idEpisode, MediaTypeEpisode, "director", details.m_director);
     AddActorLinksToItem(idEpisode, MediaTypeEpisode, "writer", details.m_writingCredits);
@@ -3079,6 +3112,9 @@ int CVideoDatabase::SetDetailsForMusicVideo(CVideoInfoTag& details,
     // update dateadded if it's set
     if (details.m_dateAdded.IsValid())
       UpdateFileDateAdded(details);
+
+    // backfill fileSize if it isn't known yet
+    UpdateFileSize(details);
 
     AddCast(idMVideo, MediaTypeMusicVideo, details.m_cast);
     AddActorLinksToItem(idMVideo, MediaTypeMusicVideo, "actor", details.m_artist);
