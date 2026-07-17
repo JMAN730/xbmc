@@ -12,6 +12,19 @@
   !include "x64.nsh"
 
 ;--------------------------------
+;Shared helpers
+
+  ;Top-level folders shipped by the installer. Kept in one place so the pre-copy
+  ;upgrade cleanup and the uninstaller cannot drift out of sync.
+  !macro RemoveShippedDirs
+    RMDir /r "$INSTDIR\addons"
+    RMDir /r "$INSTDIR\language"
+    RMDir /r "$INSTDIR\media"
+    RMDir /r "$INSTDIR\system"
+    RMDir /r "$INSTDIR\userdata"
+  !macroend
+
+;--------------------------------
 ;General
 
   ;Name and file
@@ -194,11 +207,7 @@ Section "${APP_NAME}" SecAPP
   ${If}   ${FileExists} "$INSTDIR\${APP_NAME}.exe"
   ${OrIf} ${FileExists} "$INSTDIR\uninstall.exe"
     DetailPrint "Removing files of previous ${APP_NAME} installation in $INSTDIR"
-    RMDir /r "$INSTDIR\addons"
-    RMDir /r "$INSTDIR\language"
-    RMDir /r "$INSTDIR\media"
-    RMDir /r "$INSTDIR\system"
-    RMDir /r "$INSTDIR\userdata"
+    !insertmacro RemoveShippedDirs
   ${EndIf}
 
   ;Start copying files
@@ -323,11 +332,7 @@ Section "Uninstall"
   SetShellVarContext all
 
   ;ADD YOUR OWN FILES HERE...
-  RMDir /r "$INSTDIR\addons"
-  RMDir /r "$INSTDIR\language"
-  RMDir /r "$INSTDIR\media"
-  RMDir /r "$INSTDIR\system"
-  RMDir /r "$INSTDIR\userdata"
+  !insertmacro RemoveShippedDirs
   Delete "$INSTDIR\*.*"
 
   ;Un-install User Data if option is checked, otherwise skip

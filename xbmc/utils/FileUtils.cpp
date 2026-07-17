@@ -290,8 +290,7 @@ int64_t CFileUtils::GetFileSize(const std::string& strFileNameAndPath)
   }
   catch (...)
   {
-    CLog::Log(LOGERROR, "{} unable to determine size of file ({})", __FUNCTION__,
-              strFileNameAndPath);
+    CLog::LogF(LOGERROR, "unable to determine size of file ({})", strFileNameAndPath);
   }
   return -1;
 }
