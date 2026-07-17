@@ -62,6 +62,7 @@ void CVideoInfoDownloader::Process()
   // note here that we're calling our external functions but we're calling them with
   // no progress bar set, so they're effectively calling our internal functions directly.
   m_found = 0;
+  m_result = false;
   if (m_state == FIND_MOVIE)
   {
     m_found = FindMovie(m_movieTitle, m_movieYear, m_movieList);
