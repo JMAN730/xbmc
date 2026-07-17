@@ -1247,7 +1247,7 @@ std::shared_ptr<CFileItem> BuildObject(PLT_MediaObject* entry,
   if (entry->m_Date.GetLength())
   {
     CDateTime date;
-    date.SetFromW3CDate((const char*)entry->m_Date);
+    date.SetFromW3CDateTime((const char*)entry->m_Date);
     if (date.IsValid())
       pItem->SetDateTime(date);
   }
