@@ -64,7 +64,8 @@ void CVideoInfoDownloader::Process()
   m_found = 0;
   if (m_state == FIND_MOVIE)
   {
-    if (!(m_found=FindMovie(m_movieTitle, m_movieYear, m_movieList)))
+    m_found = FindMovie(m_movieTitle, m_movieYear, m_movieList);
+    if (!m_found)
       CLog::Log(LOGERROR, "{}: Error looking up item {} ({})", __FUNCTION__, m_movieTitle,
                 m_movieYear);
     m_state = DO_NOTHING;
