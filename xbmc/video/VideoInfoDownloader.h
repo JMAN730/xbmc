@@ -82,6 +82,7 @@ protected:
   KODI::VIDEO::EPISODELIST m_episode;
   LOOKUP_STATE m_state = DO_NOTHING;
   int m_found = 0;
+  bool m_result = false;
   ADDON::ScraperPtr   m_info;
 
   // threaded stuff
