@@ -187,8 +187,12 @@ Section "${APP_NAME}" SecAPP
   ;(e.g. SocketServer.py vs socketserver.py) or that no longer exist (e.g. StringIO.py,
   ;urllib2.py) survive on case-insensitive filesystems and then shadow the correct
   ;modules at import time, breaking add-ons.
+  ;Only treat $INSTDIR as a previous ${APP_NAME} installation, and only then
+  ;perform the recursive cleanup, if a ${APP_NAME}-specific marker is present.
+  ;A generic check (e.g. a "system" subfolder existing) could also match an
+  ;unrelated or mispointed destination folder and delete a user's data.
   ${If}   ${FileExists} "$INSTDIR\${APP_NAME}.exe"
-  ${OrIf} ${FileExists} "$INSTDIR\system\*.*"
+  ${OrIf} ${FileExists} "$INSTDIR\uninstall.exe"
     DetailPrint "Removing files of previous ${APP_NAME} installation in $INSTDIR"
     RMDir /r "$INSTDIR\addons"
     RMDir /r "$INSTDIR\language"
